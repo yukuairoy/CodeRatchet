@@ -1,0 +1,4 @@
+[MESSAGES CONTROL]
+disable=all
+load-plugins=research.ratchets.ratchet_pylint
+enable=W9901
