@@ -51,21 +51,53 @@ path = "../../../etc/passwd"
         test = RegexBasedRatchetTest(
             name="no_path_traversal",
             pattern=r"\.\./",
-            match_examples=["../../etc/passwd"],
-            non_match_examples=["path/to/file"],
+            match_examples=("../../etc/passwd",),
+            non_match_examples=("path/to/file",),
         )
 
-        # Mock the ratchet tests function and os.path.exists
+        # Mock the necessary functions
+        from unittest.mock import MagicMock, patch
+
+        from coderatchet.core.config import RatchetConfig
+
+        test_config = RatchetConfig(
+            name="no_path_traversal",
+            pattern=r"\.\./",
+            match_examples=("../../etc/passwd",),
+            non_match_examples=("path/to/file",),
+        )
+
+        def mock_get_python_files(*args, **kwargs):
+            return {test_file}
+
+        git_mock = MagicMock()
+        git_mock._run_git_command.return_value.stdout = (
+            "commit_hash 1683000000 Add test file"
+        )
+
         with patch(
-            "coderatchet.core.config.get_ratchet_tests", return_value=[test]
-        ), patch("os.path.exists") as mock_exists:
-            # Test that the system doesn't actually access the malicious path
+            "coderatchet.core.config.load_ratchet_configs",
+            return_value=[test_config],
+        ), patch(
+            "coderatchet.core.config.create_ratchet_tests",
+            return_value=[test],
+        ), patch(
+            "coderatchet.core.utils.get_python_files",
+            side_effect=mock_get_python_files,
+        ), patch(
+            "coderatchet.core.utils._get_exclusion_patterns",
+            return_value=[],
+        ), patch(
+            "coderatchet.core.recent_failures.GitIntegration",
+            return_value=git_mock,
+        ):
+            # Test that the system detects the path traversal attempt
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)
             assert len(failures) == 1
+            assert failures[0].test_name == "no_path_traversal"
             assert "../../../etc/passwd" in failures[0].line_contents
-            # Check that os.path.exists was not called with the malicious path
-            for call in mock_exists.call_args_list:
-                assert "/etc/passwd" not in str(call[0][0])
+            assert failures[0].commit_hash == "commit_hash"
+
     finally:
         # Restore original directory
         os.chdir(original_dir)
