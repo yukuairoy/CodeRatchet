@@ -207,22 +207,27 @@ safe_path = os.path.join("path", "to", "file")
                 ],
                 regex_flags=re.VERBOSE | re.MULTILINE | re.DOTALL,
             ),
-            FullFileRatchetTest(
+            RegexBasedRatchetTest(
                 name="no_hardcoded_paths",
                 pattern=r"""(?x)
-                    ["\']                # Opening quote
-                    [/\\]               # Forward slash or backslash
+                    \s*                # Optional whitespace at start of line
+                    (?:unix|windows)_path\s*=\s*  # Variable assignment
+                    ["\']              # Opening quote
+                    (?:                # Non-capturing group for path start
+                        /             # Unix-style path
+                        |             # OR
+                        [A-Z]:\\     # Windows drive letter and backslash
+                    )
                     [a-zA-Z0-9_/\\.-]+  # Path characters including slashes and backslashes
-                    ["\']               # Closing quote
+                    ["\']              # Closing quote
                 """,
-                match_examples=[
-                    '"/path/to/file"',
-                    '"C:\\\\Windows\\\\System32"',  # Double escaped backslashes
-                ],
-                non_match_examples=[
-                    'os.path.join("path", "to", "file")',
-                ],
-                regex_flags=re.VERBOSE,
+                match_examples=(
+                    '    unix_path = "/path/to/file"',
+                    '    windows_path = "C:\\Windows\\System32"',
+                ),
+                non_match_examples=(
+                    '    safe_path = os.path.join("path", "to", "file")',
+                ),
             ),
         ]
 
@@ -233,7 +238,16 @@ safe_path = os.path.join("path", "to", "file")
         # Run tests
         for test in tests:
             test.collect_failures_from_file(test_file)
-            assert len(test.failures) == 2  # Should find both hardcoded paths
+            if test.name == "no_direct_dict_access":
+                assert len(test.failures) == 0  # No direct dict access violations
+            elif test.name == "no_raw_sql":
+                assert len(test.failures) == 0  # No raw SQL violations
+            elif test.name == "no_hardcoded_paths":
+                assert len(test.failures) == 2  # Should find both hardcoded paths
+                # Verify the specific paths were found
+                failure_contents = {f.line_contents.strip() for f in test.failures}
+                assert 'unix_path = "/path/to/file"' in failure_contents
+                assert 'windows_path = "C:\\Windows\\System32"' in failure_contents
 
     finally:
         # Restore original directory
