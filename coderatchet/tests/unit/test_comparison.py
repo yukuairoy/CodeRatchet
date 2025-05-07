@@ -229,7 +229,7 @@ def test_compare_ratchets_with_commits():
 
 def test_compare_ratchets_percentage_changes():
     """Test various percentage change calculations."""
-    with patch("coderatchet.core.comparison._get_ratchet_tests") as mock_get_tests:
+    with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
         with patch(
             "coderatchet.core.comparison._get_ratchet_counts"
         ) as mock_get_counts:
