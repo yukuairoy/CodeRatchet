@@ -116,7 +116,8 @@ class RatchetTest:
                         line_contents=line,
                     )
                 )
-        object.__setattr__(self, "_failures", tuple(failures))
+        # Append new failures to existing ones
+        object.__setattr__(self, "_failures", self._failures + tuple(failures))
 
     def get_total_count_from_files(self, files: List[Path]) -> int:
         """Get total count of violations from files."""
@@ -249,7 +250,8 @@ class RegexBasedRatchetTest(RatchetTest):
                         line_contents=line,
                     )
                 )
-        object.__setattr__(self, "_failures", tuple(failures))
+        # Append new failures to existing ones
+        object.__setattr__(self, "_failures", self._failures + tuple(failures))
 
     def collect_failures_from_file(self, filepath: Path) -> None:
         """Collect failures from a file.

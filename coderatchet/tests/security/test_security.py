@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from coderatchet.core.config import get_ratchet_tests
+from coderatchet.core.config import RatchetConfig, get_ratchet_tests
 from coderatchet.core.git_integration import GitIntegration
 from coderatchet.core.ratchet import RegexBasedRatchetTest
 from coderatchet.core.recent_failures import (
@@ -201,12 +201,68 @@ def test_sensitive_data_detection():
         )
         subprocess.run(["git", "commit", "-m", "Add test file"], cwd=tmpdir, check=True)
 
-        # Mock the ratchet tests function and file collection
+        # Create configs for the tests
+        configs = [
+            RatchetConfig(
+                name="api_keys",
+                pattern=r"sk_[a-zA-Z0-9_]+",
+                match_examples=(
+                    "sk_test_1234567890abcdef",
+                    "sk_live_abcdef1234567890",
+                ),
+                non_match_examples=(
+                    "pk_test_1234567890abcdef",
+                    "not_an_api_key",
+                ),
+            ),
+            RatchetConfig(
+                name="passwords",
+                pattern=r"password[0-9]+",
+                match_examples=(
+                    "password123",
+                    "password456",
+                ),
+                non_match_examples=(
+                    "not_a_password",
+                    "pass_word",
+                ),
+            ),
+            RatchetConfig(
+                name="db_urls",
+                pattern=r"postgres://[^@]+@[^/]+/[^\"'\s]+",
+                match_examples=(
+                    "postgres://user:pass@localhost/db",
+                    "postgres://admin:secret@prod.example.com/mydb",
+                ),
+                non_match_examples=(
+                    "mysql://user:pass@localhost/db",
+                    "not_a_db_url",
+                ),
+            ),
+        ]
+
+        # Mock git integration
+        git_mock = MagicMock()
+        git_mock._run_git_command.return_value.stdout = (
+            "commit_hash 1683000000 Add test file"
+        )
+
+        # Mock the necessary functions
         with patch(
-            "coderatchet.core.config.get_ratchet_tests", return_value=tests
+            "coderatchet.core.config.load_ratchet_configs",
+            return_value=configs,
+        ), patch(
+            "coderatchet.core.config.create_ratchet_tests",
+            return_value=tests,
+        ), patch(
+            "coderatchet.core.config.get_ratchet_tests",
+            return_value=set(tests),
         ), patch(
             "coderatchet.core.recent_failures.get_ratchet_test_files",
             return_value=[str(test_file)],
+        ), patch(
+            "coderatchet.core.recent_failures.GitIntegration",
+            return_value=git_mock,
         ):
             # Test for sensitive data
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)

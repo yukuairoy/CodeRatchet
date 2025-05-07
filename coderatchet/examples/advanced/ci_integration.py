@@ -97,7 +97,6 @@ class CIRatchetRunner:
                 ratchet.clear_failures()
 
             # Run ratchets on changed files
-            all_failures = []
             for file_path in changed_files:
                 if not file_path.endswith(".py"):
                     continue
@@ -107,7 +106,11 @@ class CIRatchetRunner:
                         lines = f.readlines()
 
                     for ratchet in self.ratchets:
-                        ratchet.collect_failures_from_lines(lines, file_path)
+                        failures = ratchet.collect_failures_from_lines(lines, file_path)
+                        if failures:
+                            logger.error(
+                                f"Found {len(failures)} violations in {file_path}"
+                            )
                 except IOError as e:
                     logger.error(f"Error reading file {file_path}: {e}")
                     if "Permission denied" in str(e):
@@ -121,11 +124,12 @@ class CIRatchetRunner:
                     continue
 
             # Check for failures
+            all_failures = []
             for ratchet in self.ratchets:
                 all_failures.extend(ratchet.failures)
 
             if all_failures and self.fail_on_violations:
-                logger.error(f"Found {len(all_failures)} ratchet violations")
+                logger.error(f"Found {len(all_failures)} total ratchet violations")
                 return False
 
             return True

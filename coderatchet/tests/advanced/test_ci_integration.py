@@ -1,6 +1,7 @@
 """Tests for CI integration functionality."""
 
 import os
+from pathlib import Path
 
 from coderatchet.core.ratchet import RegexBasedRatchetTest
 from coderatchet.examples.advanced.ci_integration import CIRatchetRunner
@@ -83,7 +84,10 @@ def test_ci_runner_with_violations(tmp_path):
 
     # Test with fail_on_violations=True
     runner = CIRatchetRunner(ratchets, fail_on_violations=True)
-    runner.git.get_changed_files = lambda _: [str(file1), str(file2)]
+    runner.git.get_changed_files = lambda _: [
+        str(file1.absolute()),
+        str(file2.absolute()),
+    ]
 
     success = runner.run()
     assert not success, "CI should fail when violations are found"
@@ -112,7 +116,10 @@ def test_ci_runner_non_python_files(tmp_path):
     ]
 
     runner = CIRatchetRunner(ratchets)
-    runner.git.get_changed_files = lambda _: [str(py_file), str(txt_file)]
+    runner.git.get_changed_files = lambda _: [
+        str(py_file.absolute()),
+        str(txt_file.absolute()),
+    ]
 
     success = runner.run()
     assert not success, "CI should fail due to Python file violation"
@@ -123,21 +130,27 @@ def test_ci_runner_file_errors(tmp_path):
     # Create a file without read permissions
     file_path = tmp_path / "test.py"
     file_path.write_text("print('Hello')")
-    os.chmod(file_path, 0o000)  # Remove all permissions
 
-    ratchets = [
-        RegexBasedRatchetTest(
-            name="no_print",
-            pattern=r"print\(",
-            description="No print statements",
-        )
-    ]
-
-    runner = CIRatchetRunner(ratchets)
-    runner.git.get_changed_files = lambda _: [str(file_path)]
+    # Store original permissions
+    original_mode = file_path.stat().st_mode
 
     try:
+        # Remove read permissions
+        file_path.chmod(0o000)
+
+        ratchets = [
+            RegexBasedRatchetTest(
+                name="no_print",
+                pattern=r"print\(",
+                description="No print statements",
+            )
+        ]
+
+        runner = CIRatchetRunner(ratchets)
+        runner.git.get_changed_files = lambda _: [str(file_path.absolute())]
+
         success = runner.run()
         assert success, "CI should handle file read errors gracefully"
     finally:
-        os.chmod(file_path, 0o644)  # Restore permissions
+        # Restore original permissions
+        file_path.chmod(original_mode)
