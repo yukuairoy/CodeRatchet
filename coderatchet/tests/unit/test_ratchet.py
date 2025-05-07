@@ -2,7 +2,9 @@
 Tests for ratchet functionality.
 """
 
+import os
 import re
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -15,6 +17,7 @@ from coderatchet.core.ratchet import (
     RegexBasedRatchetTest,
     TwoLineRatchetTest,
     TwoPassRatchetTest,
+    run_ratchets_on_file,
 )
 from coderatchet.core.recent_failures import BrokenRatchet, get_recently_broken_ratchets
 from coderatchet.core.test_failure import TestFailure
@@ -284,99 +287,76 @@ def test_two_pass_ratchet():
     """Test TwoPassRatchetTest functionality."""
     # Create first pass test
     first_pass = RegexBasedRatchetTest(
-        name="first_pass",
-        pattern="class\\s+\\w+",
-        description="Test class definitions",
-        match_examples=["class MyClass:"],
-        non_match_examples=["def my_function():"],
+        name="function_def",
+        pattern=r"def\s+\w+\s*\([^)]*\)\s*:",
+        match_examples=["def test():"],
+        non_match_examples=["class Test:"],
     )
 
-    # Create two-pass test
+    # Test initialization with valid patterns
     test = TwoPassRatchetTest(
-        name="test",
+        name="function_test",
         first_pass=first_pass,
-        second_pass_pattern="self\\.\\w+",
-        match_examples=["self.method()"],
-        non_match_examples=["other.method()"],
+        second_pass_pattern=r"^\s*$",  # Match empty or whitespace-only lines
+        match_examples=["", "    "],  # Empty line and whitespace-only line
+        non_match_examples=["    print('test')", "    return True"],  # Non-empty lines
     )
+    assert test.second_pass_pattern == r"^\s*$"
 
-    # Test with matching content
-    content = [
-        "class MyClass:",
-        "    def method(self):",
-        "        self.method()",  # Should match
-    ]
-    test.collect_failures_from_lines(content, "test.py")
-    assert len(test.failures) == 1
-    failure = test.failures[0]
-    assert failure.test_name == "test"
-    assert failure.filepath == "test.py"
-    assert failure.line_number == 3
-    assert failure.line_contents == "        self.method()"
+    # Test initialization with invalid second pass pattern
+    with pytest.raises(RatchetError, match="Invalid second pass pattern"):
+        TwoPassRatchetTest(
+            name="invalid_test",
+            first_pass=first_pass,
+            second_pass_pattern="[",  # Invalid regex
+            match_examples=["def test():"],
+            non_match_examples=["class Test:"],
+        )
 
-    # Test with non-matching content
+    # Test failure collection
     test.clear_failures()
-    content = [
-        "class MyClass:",
-        "    def method(self):",
-        "        other.method()",  # Should not match
-    ]
-    test.collect_failures_from_lines(content, "test.py")
-    assert len(test.failures) == 0
-
-    # Test with multiple matches
-    test.clear_failures()
-    content = [
-        "class MyClass:",
-        "    def method1(self):",
-        "        self.method1()",  # Should match
-        "    def method2(self):",
-        "        self.method2()",  # Should match
-    ]
-    test.collect_failures_from_lines(content, "test.py")
-    assert len(test.failures) == 2
-    assert test.failures[0].line_number == 3
-    assert test.failures[1].line_number == 5
+    test.collect_failures_from_lines(
+        [
+            "def test():",
+            "    print('test')",  # Non-empty function
+            "def empty():",
+            "    ",  # Empty function with whitespace
+            "def another():",
+            "",  # Empty function with no content
+            "def non_empty():",
+            "    return True",  # Non-empty function
+        ],
+        "test.py",
+    )
+    assert len(test.failures) == 2  # Should find two empty functions
 
     # Test with custom second pass pattern generation
-    def custom_pattern(failure):
-        class_name = failure.line_contents.split()[1].rstrip(":")
-        return f"self\\.{class_name}\\."
+    def generate_pattern(failure: TestFailure) -> str:
+        return r"^\s*$"  # Match empty or whitespace-only lines
 
     test = TwoPassRatchetTest(
-        name="test",
+        name="custom_test",
         first_pass=first_pass,
-        second_pass_pattern="self\\.\\w+",
-        first_pass_failure_to_second_pass_regex_part=custom_pattern,
+        second_pass_pattern=r"^\s*$",
+        first_pass_failure_to_second_pass_regex_part=generate_pattern,
         first_pass_failure_filepath_for_testing="test.py",
+        match_examples=["", "    "],  # Empty line and whitespace-only line
+        non_match_examples=["    print('test')", "    return True"],  # Non-empty lines
     )
-
-    # Test pattern generation
-    failure = TestFailure(
-        test_name="first_pass",
-        filepath="test.py",
-        line_number=1,
-        line_contents="class MyClass:",
+    test.collect_failures_from_lines(
+        [
+            "def test():",
+            "    print('test')",  # Non-empty function
+            "def empty():",
+            "    ",  # Empty function with whitespace
+            "def another():",
+            "",  # Empty function with no content
+            "def non_empty():",
+            "    return True",  # Non-empty function
+        ],
+        "test.py",
     )
-    pattern = test.first_pass_failure_to_second_pass_regex_part(failure)
-    assert pattern == "self\\.MyClass\\."
-
-    # Test with invalid pattern
-    with pytest.raises(RatchetError):
-        TwoPassRatchetTest(
-            name="test",
-            first_pass=first_pass,
-            second_pass_pattern="invalid[",  # Invalid regex
-        )
-
-    # Test with invalid example
-    with pytest.raises(RatchetError):
-        TwoPassRatchetTest(
-            name="test",
-            first_pass=first_pass,
-            second_pass_pattern="self\\.\\w+",
-            match_examples=["invalid"],  # Should match pattern
-        )
+    assert len(test.failures) == 2  # Should find two empty functions
 
 
 def test_pattern_manager():
@@ -576,3 +556,188 @@ def test_compare_ratchets():
     assert len(modified) == 0
     assert added[0].name == "test2"
     assert removed[0].name == "test3"
+
+
+def test_ratchet_test_base():
+    """Test base RatchetTest class."""
+    # Test initialization
+    test = RatchetTest(
+        name="test_ratchet",
+        description="Test description",
+        allowed_count=0,
+        exclude_test_files=True,
+        match_examples=("example1",),
+        non_match_examples=("non_example1",),
+    )
+    assert test.name == "test_ratchet"
+    assert test.description == "Test description"
+    assert test.allowed_count == 0
+    assert test.exclude_test_files is True
+    assert test.match_examples == ("example1",)
+    assert test.non_match_examples == ("non_example1",)
+    assert len(test.failures) == 0
+
+    # Test file inclusion/exclusion
+    assert test.should_include_file("regular_file.py") is True
+    assert test.should_include_file("test_file.py") is False  # Excluded as test file
+    assert (
+        test.should_include_file("test_something.py") is False
+    )  # Excluded as test file
+    assert test.should_include_file("not_a_test.py") is True
+
+    # Test failure handling
+    failure1 = TestFailure(
+        test_name="test_ratchet",
+        filepath="test.py",
+        line_number=1,
+        line_contents="example1",
+    )
+    failure2 = TestFailure(
+        test_name="test_ratchet",
+        filepath="test.py",
+        line_number=2,
+        line_contents="example2",
+    )
+
+    # Test adding failures
+    test.add_failure(failure1)
+    assert len(test.failures) == 1
+    assert test.failures[0] == failure1
+
+    test.add_failure(failure2)
+    assert len(test.failures) == 2
+    assert test.failures[1] == failure2
+
+    # Test clearing failures
+    test.clear_failures()
+    assert len(test.failures) == 0
+
+    # Test hash equality
+    test2 = RatchetTest(
+        name="test_ratchet",
+        description="Test description",
+        allowed_count=0,
+        exclude_test_files=True,
+        match_examples=("example1",),
+        non_match_examples=("non_example1",),
+    )
+    assert hash(test) == hash(test2)
+
+    # Test with custom include pattern
+    test_with_pattern = RatchetTest(
+        name="test_pattern",
+        include_file_regex=re.compile(r"\.txt$"),
+        match_examples=("example1",),
+        non_match_examples=("non_example1",),
+    )
+    assert test_with_pattern.should_include_file("file.txt") is True
+    assert test_with_pattern.should_include_file("file.py") is False
+
+
+def test_regex_based_ratchet():
+    """Test RegexBasedRatchetTest class."""
+    # Test initialization with valid pattern
+    test = RegexBasedRatchetTest(
+        name="print_test",
+        pattern=r"print\(",
+        match_examples=("print('test')",),
+        non_match_examples=("log('test')",),
+    )
+    assert test.pattern == r"print\("
+    assert test.match_examples == ("print('test')",)
+    assert test.non_match_examples == ("log('test')",)
+
+    # Test failure collection
+    test.clear_failures()
+    test.collect_failures_from_lines(
+        ["print('test')", "log('test')", "print('another test')"], "test.py"
+    )
+    assert len(test.failures) == 2
+    assert all("print" in f.line_contents for f in test.failures)
+
+    # Test file pattern inclusion
+    test = RegexBasedRatchetTest(
+        name="python_test",
+        pattern=r"print\(",
+        match_examples=("print('test')",),
+        non_match_examples=("log('test')",),
+        include_file_regex=re.compile(r"\.py$"),
+    )
+    assert test.should_include_file("test.py")
+    assert not test.should_include_file("test.txt")
+
+
+def test_file_operations():
+    """Test file operations."""
+    # Create test file
+    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as tmp:
+        tmp.write(b"print('test')\nprint('another test')\n")
+        tmp.flush()
+        tmp.close()
+
+        try:
+            # Test run_ratchets_on_file
+            test = RegexBasedRatchetTest(
+                name="print_test",
+                pattern=r"print\(",
+                match_examples=("print('test')",),
+                non_match_examples=("log('test')",),
+            )
+            failures = run_ratchets_on_file(tmp.name, [test])
+            assert len(failures) == 2
+
+            # Test with non-existent file
+            with pytest.raises(RatchetError, match="File not found"):
+                run_ratchets_on_file("nonexistent.py", [test])
+
+            # Test with binary file
+            with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as binary:
+                binary.write(b"\xff\xfe\x00\x00\xff\xff\xff\xff")  # Invalid UTF-8
+                binary.flush()
+                binary.close()
+
+                try:
+                    with pytest.raises(
+                        RatchetError,
+                        match="Failed to read.*'utf-8' codec can't decode byte 0xff",
+                    ):
+                        test.collect_failures_from_file(binary.name)
+                finally:
+                    os.unlink(binary.name)
+
+        finally:
+            os.unlink(tmp.name)
+
+
+def test_test_failure():
+    """Test TestFailure class."""
+    failure = TestFailure(
+        test_name="test_ratchet",
+        filepath="test.py",
+        line_number=1,
+        line_contents="print('test')",
+    )
+    assert failure.test_name == "test_ratchet"
+    assert failure.filepath == "test.py"
+    assert failure.line_number == 1
+    assert failure.line_contents == "print('test')"
+
+    # Test string representation
+    assert str(failure) == "test.py:1: print('test')"
+
+    # Test equality
+    failure2 = TestFailure(
+        test_name="test_ratchet",
+        filepath="test.py",
+        line_number=1,
+        line_contents="print('test')",
+    )
+    assert failure == failure2
+
+    failure3 = TestFailure(
+        test_name="test_ratchet",
+        filepath="test.py",
+        line_number=2,  # Different line number
+        line_contents="print('test')",
+    )
+    assert failure != failure3

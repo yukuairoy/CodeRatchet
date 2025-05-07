@@ -217,3 +217,149 @@ def test_ratchet_file_handling():
             )  # More flexible check for decode error
         finally:
             os.unlink(tmp.name)  # Clean up the temporary file
+
+
+def test_pattern_validation():
+    """Test pattern validation in ratchet tests."""
+    # Test invalid regex pattern
+    with pytest.raises(RatchetError) as exc_info:
+        RegexBasedRatchetTest(
+            name="invalid_pattern",
+            pattern="[",  # Invalid regex
+            match_examples=["["],
+            non_match_examples=["x"],
+        )
+    assert "Invalid regex pattern" in str(exc_info.value)
+
+    # Test mismatched match examples
+    with pytest.raises(RatchetError) as exc_info:
+        RegexBasedRatchetTest(
+            name="mismatched_examples",
+            pattern=r"print\(",
+            match_examples=["log('test')"],  # Should not match
+            non_match_examples=["x"],
+        )
+    assert "does not match pattern" in str(exc_info.value)
+
+    # Test mismatched non-match examples
+    with pytest.raises(RatchetError) as exc_info:
+        RegexBasedRatchetTest(
+            name="mismatched_non_examples",
+            pattern=r"print\(",
+            match_examples=["print('test')"],
+            non_match_examples=[
+                "print('should not match')"
+            ],  # Should match but shouldn't
+        )
+    assert "matches pattern" in str(exc_info.value)
+
+
+def test_empty_pattern_handling():
+    """Test handling of empty patterns and content."""
+    # Test with empty pattern
+    with pytest.raises(RatchetError) as exc_info:
+        RegexBasedRatchetTest(
+            name="empty_pattern",
+            pattern="",
+            match_examples=[""],
+            non_match_examples=["x"],
+        )
+    assert "matches pattern" in str(exc_info.value)
+
+    # Test with empty content
+    test = RegexBasedRatchetTest(
+        name="empty_content",
+        pattern=r"print\(",
+        match_examples=["print('test')"],
+        non_match_examples=["log('test')"],
+    )
+    test.collect_failures_from_lines([], "empty.py")
+    assert len(test.failures) == 0
+
+    # Test with only whitespace
+    test.collect_failures_from_lines([" ", "\t", "\n"], "whitespace.py")
+    assert len(test.failures) == 0
+
+
+def test_complex_regex_patterns():
+    """Test complex regex patterns with various edge cases."""
+    # Test pattern with negative lookahead
+    test = RegexBasedRatchetTest(
+        name="complex_pattern",
+        pattern=r"^(?!.*#).*print\(",  # Match print() but not if # appears anywhere before it
+        match_examples=["print('test')", "  print('test')"],
+        non_match_examples=["#print('test')", "# print('test')"],
+    )
+    content = [
+        "print('this should match')",
+        "# print('this should not match')",
+        "  print('this should match')",
+        "#print('this should not match')",
+    ]
+    test.collect_failures_from_lines(content, "complex.py")
+    assert len(test.failures) == 2
+    assert all("should match" in f.line_contents for f in test.failures)
+
+    # Test pattern with multiple capture groups
+    test = RegexBasedRatchetTest(
+        name="capture_groups",
+        pattern=r"def\s+(\w+)\s*\((.*?)\)\s*->\s*([\w\[\]]+)\s*:",
+        match_examples=["def func(x: int) -> List[str]:"],
+        non_match_examples=["def func(x):"],
+    )
+    content = [
+        "def test1(x: int) -> str:",
+        "def test2(x, y) -> List[int]:",
+        "def test3(x):",
+    ]
+    test.collect_failures_from_lines(content, "functions.py")
+    assert len(test.failures) == 2
+    assert "test3" not in str(test.failures)
+
+
+def test_pattern_manager_integration():
+    """Test integration with pattern manager functionality."""
+    # Test pattern joining
+    patterns = ["print\\(", "input\\(", "eval\\("]
+    joined_pattern = pattern_manager.join_patterns(patterns, escape=False)
+    test = RegexBasedRatchetTest(
+        name="joined_patterns",
+        pattern=str(joined_pattern.pattern),
+        match_examples=["print('test')", "input('test')", "eval('test')"],
+        non_match_examples=["log('test')"],
+    )
+    content = [
+        "print('test')",
+        "input('test')",
+        "eval('test')",
+        "log('test')",
+    ]
+    test.collect_failures_from_lines(content, "patterns.py")
+    assert len(test.failures) == 3
+
+    # Test pattern optimization
+    pattern = pattern_manager.optimize_pattern("print|print|input|input|eval")
+    test = RegexBasedRatchetTest(
+        name="optimized_pattern",
+        pattern=pattern,
+        match_examples=["print", "input", "eval"],
+        non_match_examples=["log"],
+    )
+    content = [
+        "print",
+        "input",
+        "eval",
+        "log",
+    ]
+    test.collect_failures_from_lines(content, "optimized.py")
+    assert len(test.failures) == 3
+
+    # Test pattern caching
+    pattern1 = pattern_manager.get_pattern(r"print\(", escape=False)
+    pattern2 = pattern_manager.get_pattern(r"print\(", escape=False)
+    assert pattern1 is pattern2  # Should be the same object due to caching
+
+    # Test cache clearing
+    pattern_manager.clear_cache()
+    pattern3 = pattern_manager.get_pattern(r"print\(", escape=False)
+    assert pattern1 is not pattern3  # Should be different objects after cache clear
