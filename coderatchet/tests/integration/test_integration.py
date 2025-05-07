@@ -190,19 +190,18 @@ def test_complex_ratchet_scenarios(tmp_path):
 
     (src_dir / "main.py").write_text(
         """
-import os
-from pathlib import Path
+    import os
+    from pathlib import Path
 
-def process_file(filepath):
-    with open(filepath) as f:
-        content = f.read()
-    return content
+    def process_file(filepath):
+        with open(filepath) as f:
+            content = f.read()
+        return content
 
-def main():
-    path = "../../etc/passwd"  # Potential path traversal
-    content = process_file(path)
-    print(content)  # Print sensitive data
-"""
+    def main():
+        content = process_file("../../etc/passwd")  # Potential path traversal
+        print(content)  # Print sensitive data
+    """
     )
 
     # Create various ratchet tests
