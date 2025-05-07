@@ -1,160 +1,30 @@
-"""Examples of CodeRatchet configuration and usage patterns."""
+"""Example of advanced configuration management."""
 
-from pathlib import Path
-from typing import Any, Dict, List
-
-try:
-    import yaml
-except ImportError:
-    from ruamel import yaml
-
-from coderatchet.core.ratchet import RatchetTest
-from coderatchet.core.ratchets import FunctionLengthRatchet
-from coderatchet.examples.basic_usage.basic_ratchets import get_basic_ratchets
-from coderatchet.examples.basic_usage.custom_ratchets import get_custom_ratchets
+from coderatchet.core.config import RatchetConfigManager
 
 
-class RatchetConfigManager:
-    """Configuration manager for CodeRatchet."""
+def main():
+    """Run the example."""
+    # Create a config manager
+    config_manager = RatchetConfigManager()
 
-    def __init__(self, config_path: str = "coderatchet.yaml"):
-        """Initialize the configuration.
+    # Add some patterns
+    config_manager.add_pattern("TODO", ".*\\.py$")
+    config_manager.add_pattern("FIXME", ".*\\.py$")
 
-        Args:
-            config_path: Path to the configuration file
-        """
-        self.config_path = config_path
-        self.config = self._load_config()
+    # Add some exclusions
+    config_manager.add_exclusion(".*\\.pyc$")
+    config_manager.add_exclusion(".*/__pycache__/.*")
 
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file."""
-        if not Path(self.config_path).exists():
-            return self._get_default_config()
+    # Save the config
+    config_manager.save_config("my_config.json")
 
-        try:
-            with open(self.config_path, "r") as f:
-                config = yaml.safe_load(f)
-            if not isinstance(config, dict):
-                return self._get_default_config()
-            return config
-        except (yaml.YAMLError, IOError) as e:
-            print(f"Error loading config file {self.config_path}: {e}")
-            return self._get_default_config()
+    # Load the config
+    config_manager.load_config("my_config.json")
 
-    def _get_default_config(self) -> Dict[str, Any]:
-        """Get default configuration."""
-        return {
-            "ratchets": {
-                "basic": {"enabled": True, "config": {}},
-                "custom": {
-                    "enabled": True,
-                    "config": {"function_length": {"max_lines": 50}},
-                },
-            },
-            "git": {
-                "base_branch": "main",
-                "ignore_patterns": ["*.pyc", "__pycache__/*", "*.egg-info/*"],
-            },
-            "ci": {"fail_on_violations": True, "report_format": "text"},
-        }
-
-    def get_ratchets(self) -> List[RatchetTest]:
-        """Get configured ratchet tests."""
-        ratchets = []
-
-        # Add basic ratchets if enabled
-        if self.config["ratchets"]["basic"]["enabled"]:
-            ratchets.extend(get_basic_ratchets())
-
-        # Add custom ratchets if enabled
-        if self.config["ratchets"]["custom"]["enabled"]:
-            custom_config = self.config["ratchets"]["custom"]["config"]
-
-            # Create new instances of custom ratchets with configured values
-            for ratchet_template in get_custom_ratchets():
-                if isinstance(ratchet_template, FunctionLengthRatchet):
-                    # Get configured max_lines or use default
-                    max_lines = custom_config.get("function_length", {}).get(
-                        "max_lines", 50
-                    )
-                    # Create new instance with configured value
-                    ratchet = FunctionLengthRatchet(
-                        max_lines=max_lines,
-                        name=ratchet_template.name,
-                        description=ratchet_template.description,
-                        allowed_count=ratchet_template.allowed_count,
-                        exclude_test_files=ratchet_template.exclude_test_files,
-                        match_examples=ratchet_template.match_examples,
-                        non_match_examples=ratchet_template.non_match_examples,
-                    )
-                    ratchets.append(ratchet)
-                else:
-                    ratchets.append(ratchet_template)
-
-        return ratchets
-
-    def save_config(self):
-        """Save current configuration to file."""
-        with open(self.config_path, "w") as f:
-            yaml.dump(self.config, f, default_flow_style=False)
+    # Print the config
+    print(config_manager.get_config())
 
 
-def example_usage():
-    """Example usage of the configuration system."""
-    # Create a new configuration
-    config = RatchetConfigManager()
-
-    # Modify some settings
-    config.config["ratchets"]["custom"]["config"]["function_length"]["max_lines"] = 30
-    config.config["git"]["ignore_patterns"].append("tests/*")
-
-    # Save the configuration
-    config.save_config()
-
-    # Get configured ratchets
-    ratchets = config.get_ratchets()
-    print(f"Loaded {len(ratchets)} ratchet tests")
-
-    # Example: Run ratchets on a specific file
-    from ..core.ratchet import run_ratchets_on_file
-
-    results = run_ratchets_on_file(
-        "example.py", ratchets, ignore_patterns=config.config["git"]["ignore_patterns"]
-    )
-
-    # Print results
-    if results.failures:
-        print("\nViolations found:")
-        for failure in results.failures:
-            print(f"{failure.file_path}:{failure.line_number} - {failure.message}")
-    else:
-        print("\nNo violations found")
-
-
-def test_configuration(tmp_path):
-    """Test configuration functionality."""
-    # Create test config file
-    config_path = tmp_path / "test_config.yaml"
-    config = RatchetConfigManager(str(config_path))
-
-    # Test default config
-    assert config.config["ratchets"]["basic"]["enabled"]
-    assert config.config["ratchets"]["custom"]["enabled"]
-    assert config.config["git"]["base_branch"] == "main"
-
-    # Test ratchet loading
-    ratchets = config.get_ratchets()
-    assert len(ratchets) > 0
-
-    # Test config modification
-    config.config["ratchets"]["custom"]["config"]["function_length"]["max_lines"] = 30
-    config.save_config()
-
-    # Reload config
-    new_config = RatchetConfigManager(str(config_path))
-    assert (
-        new_config.config["ratchets"]["custom"]["config"]["function_length"][
-            "max_lines"
-        ]
-        == 30
-    )
+if __name__ == "__main__":
+    main()

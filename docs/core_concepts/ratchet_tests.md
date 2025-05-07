@@ -1,177 +1,132 @@
 # Ratchet Tests
 
-Ratchet tests are the core concept of CodeRatchet. They define patterns that should not be present in your codebase and help maintain code quality standards.
+Ratchet tests are the core concept in CodeRatchet. They allow you to enforce code quality standards by detecting and preventing specific patterns in your code.
 
-## Basic Structure
+## Types of Ratchet Tests
 
-A ratchet test consists of:
+### RegexBasedRatchetTest
 
-- `name`: A descriptive identifier for the test
-- `pattern`: A regular expression pattern to match
-- `match_examples`: Examples that should match the pattern
-- `non_match_examples`: Examples that should not match the pattern
+The most basic type of ratchet test that uses regular expressions to match patterns:
 
-Example:
-```yaml
-ratchets:
-  - name: no_print_statements
-    pattern: print\(
-    match_examples:
-      - "print('Hello')"
-      - "print(f'Hello {name}')"
-    non_match_examples:
-      - "logger.info('Hello')"
-      - "print = 'test'"
+```python
+from coderatchet.core.ratchet import RegexBasedRatchetTest
+
+ratchet = RegexBasedRatchetTest(
+    name="no_print",
+    pattern=r"print\(",
+    match_examples=["print('Hello')"],
+    non_match_examples=["logger.info('Hello')"],
+)
 ```
 
-## Pattern Types
+### TwoPassRatchetTest
 
-### 1. Simple Patterns
-Basic regular expressions for simple matches:
-```yaml
-- name: no_tabs
-  pattern: \t
-  match_examples:
-    - "\tindented line"
-  non_match_examples:
-    - "    indented line"
+A more advanced ratchet test that performs two passes over the code:
+
+```python
+from coderatchet.core.ratchet import TwoPassRatchetTest
+
+ratchet = TwoPassRatchetTest(
+    name="function_length",
+    first_pass=RegexBasedRatchetTest(
+        name="function_def",
+        pattern=r"def\s+\w+\s*\([^)]*\)\s*:",
+        match_examples=["def foo():"],
+        non_match_examples=["class Foo:"],
+    ),
+    first_pass_failure_to_second_pass_regex_part=lambda f: r"^(?!\s*$).+$",
+    first_pass_failure_filepath_for_testing="test.py",
+)
 ```
 
-### 2. Complex Patterns
-Advanced regular expressions with groups and lookarounds:
-```yaml
-- name: no_hardcoded_credentials
-  pattern: (password|secret|key)\s*=\s*['\"][^'\"]+['\"]
-  match_examples:
-    - "password = 'secret123'"
-    - "api_key = \"sk_test_123\""
-  non_match_examples:
-    - "password = None"
-    - "key_length = 32"
+## Creating Ratchet Tests
+
+### Basic Requirements
+
+Every ratchet test requires:
+- A unique name
+- A pattern to match
+- Examples that should match
+- Examples that should not match
+
+### Pattern Design
+
+When designing patterns:
+- Use non-capturing groups where possible
+- Test patterns thoroughly
+- Include edge cases in examples
+- Consider performance implications
+
+### Example Patterns
+
+Common patterns include:
+- Function definitions: `r"def\s+\w+\s*\([^)]*\)\s*:"`
+- Print statements: `r"print\("`
+- TODO comments: `r"#\s*TODO"`
+- Magic numbers: `r"\b\d{4,}\b"`
+
+## Running Tests
+
+### Basic Usage
+
+```python
+# Run on a single file
+results = ratchet.check_file("your_file.py")
+
+# Run on multiple files
+results = ratchet.check_files(["file1.py", "file2.py"])
+
+# Run on a directory
+results = ratchet.check_directory("src/")
 ```
 
-### 3. File-specific Patterns
-Patterns that only apply to certain file types:
-```yaml
-- name: no_console_log
-  pattern: console\.log\(
-  file_pattern: "*.js"
-  match_examples:
-    - "console.log('test')"
-  non_match_examples:
-    - "logger.info('test')"
-```
+### Configuration Options
+
+Tests can be configured with:
+- `exclude_test_files`: Skip test files
+- `include_file_regex`: Only check matching files
+- `description`: Add a description
+- `allowed_count`: Set violation threshold
 
 ## Best Practices
 
-### 1. Pattern Design
-- Keep patterns as specific as possible
-- Use non-capturing groups when possible
-- Consider edge cases in your examples
-- Test patterns thoroughly before deployment
+1. **Pattern Design**
+   - Keep patterns simple and focused
+   - Use clear, descriptive names
+   - Document complex patterns
+   - Test edge cases
 
-### 2. Example Selection
-- Include both obvious and edge cases
-- Cover different variations of the same pattern
-- Include false positives to ensure accuracy
-- Update examples as patterns evolve
+2. **Configuration**
+   - Set appropriate thresholds
+   - Use file exclusions wisely
+   - Document configuration choices
+   - Version control configurations
 
-### 3. Naming Conventions
-- Use descriptive, action-oriented names
-- Follow a consistent naming scheme
-- Include the type of check in the name
-- Avoid ambiguous terms
+3. **Maintenance**
+   - Review patterns regularly
+   - Update examples as needed
+   - Monitor performance
+   - Document changes
 
-## Common Patterns
+## Common Use Cases
 
-### Code Style
-```yaml
-- name: no_trailing_whitespace
-  pattern: \s+$
-  match_examples:
-    - "line with spaces    "
-  non_match_examples:
-    - "clean line"
-```
+1. **Code Style**
+   - Enforce naming conventions
+   - Prevent specific patterns
+   - Ensure consistent formatting
 
-### Security
-```yaml
-- name: no_hardcoded_secrets
-  pattern: (api_key|secret|password)\s*=\s*['\"][^'\"]{8,}['\"]
-  match_examples:
-    - "api_key = 'sk_test_1234567890'"
-  non_match_examples:
-    - "api_key = os.getenv('API_KEY')"
-```
+2. **Code Quality**
+   - Limit function length
+   - Prevent magic numbers
+   - Enforce documentation
 
-### Performance
-```yaml
-- name: no_nested_loops
-  pattern: for\s+.*\s+in\s+.*:\s*\n\s*for\s+.*\s+in\s+.*:
-  match_examples:
-    - "for i in range(10):\n    for j in range(10):"
-  non_match_examples:
-    - "for i in range(10):\n    print(i)"
-```
+3. **Security**
+   - Prevent sensitive data
+   - Block dangerous patterns
+   - Enforce best practices
 
-## Advanced Features
+## Advanced Topics
 
-### 1. Custom Validators
-You can create custom validator functions for complex checks:
-```python
-def validate_import_order(imports):
-    stdlib = []
-    third_party = []
-    local = []
-    
-    for imp in imports:
-        if imp.startswith('.'):
-            local.append(imp)
-        elif '.' in imp:
-            third_party.append(imp)
-        else:
-            stdlib.append(imp)
-    
-    return stdlib + third_party + local == imports
-```
-
-### 2. Conditional Patterns
-Patterns that only apply under certain conditions:
-```yaml
-- name: no_direct_db_access
-  pattern: "cursor\\.execute\\("
-  condition: "not file.endswith('_test.py')"
-  match_examples:
-    - "cursor.execute('SELECT * FROM users')"
-  non_match_examples:
-    - "test_cursor.execute('SELECT 1')"
-```
-
-### 3. Pattern Groups
-Group related patterns together:
-```yaml
-- name: security_checks
-  patterns:
-    - no_hardcoded_secrets
-    - no_unsafe_eval
-    - no_sql_injection
-  match_examples:
-    - "password = 'secret123'"
-    - "eval(user_input)"
-    - "f'SELECT * FROM {table}'"
-  non_match_examples:
-    - "password = None"
-    - "safe_eval('1 + 1')"
-    - "query = 'SELECT * FROM users'"
-```
-
-## Testing Your Patterns
-
-Always test your patterns before deploying them:
-
-1. Create test cases
-2. Run against sample code
-3. Verify matches and non-matches
-4. Check performance impact
-
-For more information, see the [Testing Guide](../contributing/testing.md). 
+- [Custom Ratchets](../advanced/custom_ratchets.md)
+- [CI/CD Integration](../advanced/ci_integration.md)
+- [Performance Tuning](../troubleshooting/performance.md) 

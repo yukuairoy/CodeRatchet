@@ -8,7 +8,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 import attr
-from loguru import logger
+
+from coderatchet.utils.logger import logger
 
 from .ratchet import RatchetTest
 from .utils import load_ratchet_count
@@ -91,14 +92,6 @@ def _get_ratchet_counts(tests: List[RatchetTest]) -> Dict[str, int]:
             logger.warning(f"Failed to load count for {test.name}: {e}")
             counts[test.name] = 0
     return counts
-
-
-def _get_ratchet_tests() -> List[RatchetTest]:
-    """Get all ratchet tests to check."""
-    from .config import create_ratchet_tests, load_ratchet_configs
-
-    configs = load_ratchet_configs()
-    return create_ratchet_tests(configs)
 
 
 class _checkout_state:

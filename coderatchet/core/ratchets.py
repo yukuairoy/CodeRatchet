@@ -90,8 +90,7 @@ class FunctionLengthRatchet(RatchetTest):
                                 test_name=self.name,
                                 filepath=filepath,
                                 line_number=start_line,
-                                line_contents=lines[start_line - 1],
-                                message=msg,
+                                line_contents=msg,
                             )
                         )
         except SyntaxError:

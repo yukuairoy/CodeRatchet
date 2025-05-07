@@ -1,5 +1,5 @@
 """
-Configuration management for ratchet rules.
+Configuration management for the coderatchet package.
 """
 
 import copy
@@ -11,14 +11,47 @@ from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, Set, TypeVar, Union
 
 import yaml
-from loguru import logger
 
-from .errors import ConfigError
+from coderatchet.core.errors import ConfigError
+from coderatchet.utils.logger import logger
+
 from .ratchet import RatchetTest, RegexBasedRatchetTest, TwoPassRatchetTest
 from .ratchets import FunctionLengthRatchet
 from .utils import RatchetError
 
 T = TypeVar("T")
+
+# Move DEFAULT_CONFIG to top since it's used by multiple functions
+DEFAULT_CONFIG = {
+    "ratchets": {
+        "basic": {
+            "enabled": True,
+            "config": {},
+            "allowed_count": 0,
+            "match_examples": [],
+            "non_match_examples": [],
+        },
+        "custom": {
+            "enabled": True,
+            "config": {
+                "function_length": {
+                    "max_lines": 50,
+                },
+            },
+            "allowed_count": 0,
+            "match_examples": [],
+            "non_match_examples": [],
+        },
+    },
+    "git": {
+        "base_branch": "main",
+        "ignore_patterns": ["*.pyc", "__pycache__/*", "*.egg-info/*"],
+    },
+    "ci": {
+        "fail_on_violations": True,
+        "report_format": "text",
+    },
+}
 
 
 @dataclass
@@ -127,9 +160,23 @@ class RatchetConfig:
             )
 
 
+def save_config(config: Dict[str, Any], config_path: Path) -> None:
+    """Save configuration to file.
+
+    Args:
+        config: Configuration dictionary to save
+        config_path: Path to save configuration to
+    """
+    with open(config_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+
 @lru_cache(maxsize=None)
 def load_config(
-    config_file: Union[str, Path], _visited: Optional[frozenset] = None, _depth: int = 0
+    config_file: Union[str, Path],
+    _visited: Optional[frozenset] = None,
+    _depth: int = 0,
+    fallback_to_default: bool = True,
 ) -> Dict[str, Any]:
     """Load configuration from a YAML file with environment variable substitution.
 
@@ -137,37 +184,41 @@ def load_config(
         config_file: Path to configuration file
         _visited: Frozenset of visited file paths (internal use)
         _depth: Current recursion depth (internal use)
+        fallback_to_default: Whether to return default config if loading fails
 
     Returns:
         Configuration dictionary
 
     Raises:
-        ConfigError: If configuration is invalid
+        ConfigError: If configuration is invalid and fallback_to_default is False
     """
-    MAX_DEPTH = 10  # Maximum recursion depth for config inheritance
-
-    if _depth > MAX_DEPTH:
-        raise ConfigError("Maximum config inheritance depth exceeded")
-
-    visited_paths = set() if _visited is None else set(_visited)
-
     try:
         config_path = Path(config_file)
         if not config_path.exists():
-            return DEFAULT_CONFIG
+            if fallback_to_default:
+                return DEFAULT_CONFIG
+            raise ConfigError(f"Configuration file not found: {config_file}")
 
-        abs_path = config_path.resolve()
-        if abs_path in visited_paths:
-            raise ConfigError(
-                f"Circular dependency detected in config inheritance: {abs_path}"
-            )
+        # Initialize visited paths if not provided
+        visited_paths = set() if _visited is None else set(_visited)
+        resolved_path = str(config_path.resolve())
+        if resolved_path in visited_paths:
+            if fallback_to_default:
+                return DEFAULT_CONFIG
+            raise ConfigError(f"Circular dependency detected: {config_file}")
+        visited_paths.add(resolved_path)
 
-        visited_paths.add(abs_path)
-
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            if fallback_to_default:
+                return DEFAULT_CONFIG
+            raise ConfigError(f"Invalid YAML in configuration file: {e}")
 
         if not isinstance(config, dict):
+            if fallback_to_default:
+                return DEFAULT_CONFIG
             raise ConfigError("Configuration must be a dictionary")
 
         # Handle inheritance first
@@ -175,10 +226,15 @@ def load_config(
             base_config_path = config_path.parent / config["extends"]
             try:
                 base_config = load_config(
-                    base_config_path, frozenset(visited_paths), _depth + 1
+                    base_config_path,
+                    frozenset(visited_paths),
+                    _depth + 1,
+                    fallback_to_default=fallback_to_default,  # Pass through the fallback setting
                 )
                 config = merge_configs(base_config, config)
             except (OSError, ConfigError) as e:
+                if fallback_to_default:
+                    return DEFAULT_CONFIG
                 raise ConfigError(
                     f"Failed to load base configuration from {base_config_path}: {e}"
                 )
@@ -190,10 +246,15 @@ def load_config(
         if "ratchets" not in config:
             config["ratchets"] = {}
 
+        # Validate each ratchet configuration
         for name, ratchet_config in config["ratchets"].items():
             if not isinstance(ratchet_config, dict):
-                ratchet_config = {}
-                config["ratchets"][name] = ratchet_config
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"Ratchet configuration for '{name}' must be a dictionary"
+                    )
 
             # Set default values
             ratchet_config.setdefault("enabled", True)
@@ -205,34 +266,108 @@ def load_config(
 
             # Validate types
             if not isinstance(ratchet_config["enabled"], bool):
-                raise ConfigError(
-                    f"'enabled' field for ratchet '{name}' must be a boolean"
-                )
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'enabled' field for ratchet '{name}' must be a boolean"
+                    )
+
             if not isinstance(ratchet_config["config"], dict):
-                raise ConfigError(
-                    f"'config' field for ratchet '{name}' must be a dictionary"
-                )
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'config' field for ratchet '{name}' must be a dictionary"
+                    )
+
             if not isinstance(ratchet_config["allowed_count"], int):
-                raise ConfigError(
-                    f"'allowed_count' field for ratchet '{name}' must be an integer"
-                )
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'allowed_count' field for ratchet '{name}' must be an integer"
+                    )
+
             if not isinstance(ratchet_config["match_examples"], list):
-                raise ConfigError(
-                    f"'match_examples' field for ratchet '{name}' must be a list"
-                )
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'match_examples' field for ratchet '{name}' must be a list"
+                    )
+
+            if not all(isinstance(x, str) for x in ratchet_config["match_examples"]):
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'match_examples' field for ratchet '{name}' must be a list of strings"
+                    )
+
             if not isinstance(ratchet_config["non_match_examples"], list):
-                raise ConfigError(
-                    f"'non_match_examples' field for ratchet '{name}' must be a list"
-                )
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'non_match_examples' field for ratchet '{name}' must be a list"
+                    )
+
+            if not all(
+                isinstance(x, str) for x in ratchet_config["non_match_examples"]
+            ):
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'non_match_examples' field for ratchet '{name}' must be a list of strings"
+                    )
+
+            if not isinstance(ratchet_config["severity"], str):
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'severity' field for ratchet '{name}' must be a string"
+                    )
+
             if ratchet_config["severity"] not in {"error", "warning", "info"}:
-                raise ConfigError(
-                    "'severity' field for ratchet '" + name + "' "
-                    "must be one of: error, warning, info"
-                )
+                if fallback_to_default:
+                    config["ratchets"][name] = DEFAULT_CONFIG["ratchets"].get(name, {})
+                else:
+                    raise ConfigError(
+                        f"'severity' field for ratchet '{name}' must be one of: error, warning, info"
+                    )
+
+        # Set default values for git and ci sections
+        if "git" not in config:
+            config["git"] = DEFAULT_CONFIG["git"]
+        else:
+            config["git"].setdefault(
+                "base_branch", DEFAULT_CONFIG["git"]["base_branch"]
+            )
+            config["git"].setdefault(
+                "ignore_patterns", DEFAULT_CONFIG["git"]["ignore_patterns"]
+            )
+
+        if "ci" not in config:
+            config["ci"] = DEFAULT_CONFIG["ci"]
+        else:
+            config["ci"].setdefault(
+                "fail_on_violations", DEFAULT_CONFIG["ci"]["fail_on_violations"]
+            )
+            config["ci"].setdefault(
+                "report_format", DEFAULT_CONFIG["ci"]["report_format"]
+            )
 
         return config
 
-    except yaml.YAMLError as e:
+    except Exception as e:
+        if fallback_to_default:
+            logger.warning(
+                f"Failed to load config from {config_file}, using default: {e}"
+            )
+            return DEFAULT_CONFIG
         raise ConfigError(f"Failed to load configuration file: {e}")
 
 
@@ -355,32 +490,11 @@ class RatchetConfigManager:
             config_path: Path to the configuration file
         """
         self.config_path = config_path
-        self.config = self._load_config()
+        self.config = load_config(config_path)
 
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file."""
-        if not Path(self.config_path).exists():
-            return self._get_default_config()
-
-        with open(self.config_path, "r") as f:
-            return yaml.safe_load(f)
-
-    def _get_default_config(self) -> Dict[str, Any]:
-        """Get default configuration."""
-        return {
-            "ratchets": {
-                "basic": {"enabled": True, "config": {}},
-                "custom": {
-                    "enabled": True,
-                    "config": {"function_length": {"max_lines": 50}},
-                },
-            },
-            "git": {
-                "base_branch": "main",
-                "ignore_patterns": ["*.pyc", "__pycache__/*", "*.egg-info/*"],
-            },
-            "ci": {"fail_on_violations": True, "report_format": "text"},
-        }
+    def save_config(self):
+        """Save current configuration to file."""
+        save_config(self.config, self.config_path)
 
     def get_ratchets(self) -> List[RatchetTest]:
         """Get configured ratchet tests."""
@@ -401,58 +515,19 @@ class RatchetConfigManager:
                 if ratchet.name in self.config["ratchets"]["custom"]["config"]:
                     config = self.config["ratchets"]["custom"]["config"][ratchet.name]
                     if isinstance(ratchet, FunctionLengthRatchet):
-                        ratchet.max_lines = config.get("max_lines", 50)
+                        # Create a new instance with the custom max_lines
+                        ratchet = FunctionLengthRatchet(
+                            max_lines=config.get("max_lines", 50),
+                            name=ratchet.name,
+                            description=ratchet.description,
+                            allowed_count=ratchet.allowed_count,
+                            exclude_test_files=ratchet.exclude_test_files,
+                            match_examples=ratchet.match_examples,
+                            non_match_examples=ratchet.non_match_examples,
+                        )
                 ratchets.append(ratchet)
 
         return ratchets
-
-    def save_config(self):
-        """Save current configuration to file."""
-        with open(self.config_path, "w") as f:
-            yaml.dump(self.config, f, default_flow_style=False)
-
-
-def save_config(config: Dict[str, Any], config_path: Path) -> None:
-    """Save configuration to file.
-
-    Args:
-        config: Configuration dictionary to save
-        config_path: Path to save configuration to
-    """
-    with open(config_path, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
-
-
-DEFAULT_CONFIG = {
-    "ratchets": {
-        "basic": {
-            "enabled": True,
-            "config": {},
-            "allowed_count": 0,
-            "match_examples": [],
-            "non_match_examples": [],
-        },
-        "custom": {
-            "enabled": True,
-            "config": {
-                "function_length": {
-                    "max_lines": 50,
-                },
-            },
-            "allowed_count": 0,
-            "match_examples": [],
-            "non_match_examples": [],
-        },
-    },
-    "git": {
-        "base_branch": "main",
-        "ignore_patterns": ["*.pyc", "__pycache__/*", "*.egg-info/*"],
-    },
-    "ci": {
-        "fail_on_violations": True,
-        "report_format": "text",
-    },
-}
 
 
 def load_ratchet_configs(

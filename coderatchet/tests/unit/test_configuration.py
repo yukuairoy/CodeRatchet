@@ -73,7 +73,7 @@ def test_load_invalid_yaml(tmp_path):
     )
 
     with pytest.raises(ConfigError):
-        load_config(config_file)
+        load_config(config_file, fallback_to_default=False)
 
 
 def test_save_config(tmp_path):
@@ -104,7 +104,7 @@ def test_config_validation(tmp_path):
         yaml.dump(invalid_config, f)
 
     with pytest.raises(ConfigError):
-        load_config(config_file)
+        load_config(config_file, fallback_to_default=False)
 
 
 def test_config_merging(tmp_path):

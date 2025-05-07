@@ -11,12 +11,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from coderatchet.core.git_integration import GitIntegration
-from coderatchet.core.ratchet import RegexBasedRatchetTest, TestFailure
+from coderatchet.core.ratchet import RegexBasedRatchetTest
 from coderatchet.core.recent_failures import (
     BrokenRatchet,
     GitHistoryManager,
     get_recently_broken_ratchets,
 )
+from coderatchet.core.test_failure import TestFailure
 
 
 def test_get_recently_broken_ratchets(tmp_path):

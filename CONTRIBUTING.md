@@ -68,7 +68,7 @@ When creating new ratchet tests:
 
 ## Reporting Bugs
 
-Report bugs by [opening an issue](https://github.com/yourusername/coderatchet/issues):
+Report bugs by [opening an issue](https://github.com/yukuairoy/CodeRatchet/issues):
 
 1. Describe the bug
 2. Include steps to reproduce

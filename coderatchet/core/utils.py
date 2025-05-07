@@ -6,12 +6,12 @@ import json
 import os
 import os.path
 import re
+from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
-import attr
-from loguru import logger
+from coderatchet.utils.logger import logger
 
 
 class RatchetError(Exception):
@@ -60,9 +60,14 @@ class PatternManager:
         cache_key = (pattern, escape, self._cache_generation)
 
         if cache_key not in self._pattern_cache:
+            if escape:
+                # Split by | and escape each part separately
+                parts = pattern.split("|")
+                parts = [re.escape(part) for part in parts]
+                pattern = "|".join(parts)
             optimized = self.optimize_pattern(pattern)
             self._pattern_cache[cache_key] = re.compile(
-                re.escape(optimized) if escape else optimized,
+                optimized,
                 re.ASCII if self._cache_generation % 2 else 0,
             )
         return self._pattern_cache[cache_key]
@@ -76,9 +81,14 @@ class PatternManager:
         Returns:
             The optimized pattern
         """
-        # For now, just return the pattern as is
-        # In the future, we can add pattern optimization logic here
-        return pattern
+        # Split by | and remove duplicates while preserving order
+        parts = []
+        seen = set()
+        for part in pattern.split("|"):
+            if part not in seen:
+                seen.add(part)
+                parts.append(part)
+        return "|".join(parts)
 
     def clear_cache(self) -> None:
         """Clear the pattern cache."""
@@ -395,56 +405,40 @@ def file_path_to_module_path(filepath: str) -> str:
     return normalized.replace("/", ".")
 
 
-@attr.s(auto_attribs=True)
-class TestFailure:
-    """A test failure.
+@dataclass
+class FileTestFailure:
+    """A test failure for file-based tests."""
 
-    Attributes:
-        test_name: Name of the test that failed
-        filepath: Path to the file where the failure occurred
-        line_number: Line number where the failure occurred
-        line_contents: Contents of the line that caused the failure
-    """
-
-    test_name: str
-    filepath: str
+    file_path: str
     line_number: int
-    line_contents: str
-
-    # Make pytest not think this is a test
-    __test__ = False
-
-    def __str__(self) -> str:
-        """Return a string representation of the test failure.
-
-        Returns:
-            String in the format "filepath:line_number: line_contents"
-        """
-        return f"{self.filepath}:{self.line_number}: {self.line_contents}"
+    message: str
 
 
-def _regex_join_with_or(regex_parts: Iterable[str]) -> re.Pattern:
-    """Join regex parts with OR operator.
+def _regex_join_with_or(patterns: List[str], escape: bool = True) -> str:
+    """Join regex patterns with OR operator.
 
     Args:
-        regex_parts: Iterable of regex patterns to join
+        patterns: List of regex patterns
+        escape: Whether to escape special characters in patterns (default: True)
 
     Returns:
-        Compiled regex pattern
+        Joined pattern
     """
-    if not regex_parts:
-        return re.compile("(?!)")  # Never match anything
-    return re.compile("|".join(f"({part})" for part in regex_parts))
+    if escape:
+        patterns = [re.escape(p) for p in patterns]
+    return "|".join(f"({p})" for p in patterns)
 
 
 def join_regex_patterns(patterns: List[str], escape: bool = True) -> re.Pattern:
     """Join regex patterns with OR operator.
 
     Args:
-        patterns: List of regex patterns to join
-        escape: Whether to escape the patterns (default: True)
+        patterns: List of regex patterns
+        escape: Whether to escape special characters in patterns (default: True)
 
     Returns:
         Compiled regex pattern
     """
-    return pattern_manager.join_patterns(patterns, escape)
+    if not patterns:
+        return re.compile("(?!)")  # Never matches
+    return re.compile(_regex_join_with_or(patterns, escape))

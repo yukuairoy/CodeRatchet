@@ -12,7 +12,7 @@ This document provides guidelines for contributing to CodeRatchet.
 ### Setup
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/coderatchet.git
+git clone https://github.com/yukuairoy/coderatchet.git
 cd coderatchet
 ```
 

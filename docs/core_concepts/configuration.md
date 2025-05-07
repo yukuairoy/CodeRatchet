@@ -1,12 +1,10 @@
-# Configuration Guide
+# Configuration
 
-This guide explains how to configure CodeRatchet for your project.
+CodeRatchet uses YAML configuration files to define ratchet tests and their settings.
 
-## Configuration File
+## Basic Configuration
 
-CodeRatchet uses a YAML configuration file (`coderatchet.yaml`) to define its behavior.
-
-### Basic Structure
+A basic configuration file (`coderatchet.yaml`):
 
 ```yaml
 ratchets:
@@ -18,221 +16,169 @@ ratchets:
     config:
       function_length:
         max_lines: 50
+```
 
+## Configuration Structure
+
+### Basic Options
+
+```yaml
+ratchets:
+  basic:
+    enabled: true  # Enable/disable basic ratchets
+    config: {}     # Basic ratchet configuration
+  custom:
+    enabled: true  # Enable/disable custom ratchets
+    config:        # Custom ratchet configuration
+      function_length:
+        max_lines: 50
+```
+
+### Git Options
+
+```yaml
 git:
-  base_branch: main
-  ignore_patterns:
+  base_branch: main           # Base branch for comparison
+  ignore_patterns:            # Patterns to ignore in git operations
     - "*.pyc"
-    - "__pycache__/*"
-    - "*.egg-info/*"
+    - "__pycache__/"
+    - "venv/"
+```
 
+### CI Options
+
+```yaml
 ci:
-  fail_on_violations: true
-  report_format: text
+  fail_on_violations: true    # Whether to fail CI on violations
+  report_format: text         # Output format (text/json)
+  check_all_files: false      # Check all files or just changed ones
+  exclude_patterns:           # Additional patterns to exclude
+    - "tests/"
+    - "docs/"
 ```
 
 ## Ratchet Configuration
 
-### Basic Ratchets
+### Basic Ratchet
 
 ```yaml
 ratchets:
   basic:
     enabled: true
     config:
-      no_print_statements:
-        enabled: true
-        severity: warning
-      no_debug_comments:
-        enabled: true
-        severity: info
-      no_bare_except:
-        enabled: true
-        severity: error
+      no_print:
+        pattern: "print\\("
+        match_examples:
+          - "print('Hello')"
+        non_match_examples:
+          - "logger.info('Hello')"
 ```
 
-### Custom Ratchets
+### Two-Pass Ratchet
 
 ```yaml
 ratchets:
   custom:
     enabled: true
     config:
-      no_hardcoded_secrets:
-        enabled: true
-        severity: high
-        pattern: "(?i)(?:password|secret|key|token)\\s*=\\s*['\"][^'\"]+['\"]"
       function_length:
-        enabled: true
-        max_lines: 50
-        severity: medium
+        is_two_pass: true
+        first_pass:
+          pattern: "def\\s+\\w+\\s*\\([^)]*\\)\\s*:"
+          match_examples:
+            - "def foo():"
+          non_match_examples:
+            - "class Foo:"
+        second_pass:
+          pattern: "^(?!\\s*$).+$"
 ```
 
-## Git Integration
+## File Exclusion
 
-```yaml
-git:
-  base_branch: main
-  ignore_patterns:
-    - "*.pyc"
-    - "__pycache__/*"
-    - "*.egg-info/*"
-    - "venv/*"
-    - "build/*"
-    - "dist/*"
-  hooks:
-    pre_commit:
-      enabled: true
-      fail_on_violations: true
-    pre_push:
-      enabled: false
+Configure file exclusions in `ratchet_excluded.txt`:
+
 ```
-
-## CI/CD Integration
-
-```yaml
-ci:
-  fail_on_violations: true
-  report_format: text
-  output_file: ratchet_report.txt
-  thresholds:
-    error: 0
-    warning: 5
-    info: 10
-```
-
-## Advanced Settings
-
-### Pattern Groups
-
-```yaml
-pattern_groups:
-  security:
-    - no_hardcoded_secrets
-    - no_unsafe_eval
-    - no_sql_injection
-  style:
-    - no_print_statements
-    - no_debug_comments
-    - function_length
-```
-
-### Custom Rules
-
-```yaml
-custom_rules:
-  - name: custom_pattern
-    pattern: "your_pattern_here"
-    match_examples:
-      - "example1"
-      - "example2"
-    non_match_examples:
-      - "non_example1"
-      - "non_example2"
-    severity: warning
+# Exclude patterns
+*.pyc
+__pycache__
+venv/
+!important.py
+test2.py
 ```
 
 ## Environment Variables
 
-CodeRatchet supports environment variables in the configuration:
+CodeRatchet supports environment variables for sensitive configuration:
+
+```yaml
+git:
+  api_key: ${GIT_API_KEY}
+  base_url: ${GIT_BASE_URL}
+```
+
+## Configuration Examples
+
+### Strict Configuration
 
 ```yaml
 ratchets:
-  custom:
+  basic:
+    enabled: true
     config:
       function_length:
-        max_lines: ${MAX_FUNCTION_LINES:-50}
+        max_lines: 30
+      line_length:
+        max_chars: 80
+  custom:
+    enabled: true
+    config:
+      import_order:
+        strict: true
+      docstring:
+        required: true
 ```
 
-## File-specific Settings
+### Relaxed Configuration
 
 ```yaml
-file_settings:
-  "tests/*":
-    ratchets:
-      no_print_statements:
-        enabled: false
-  "scripts/*.py":
-    ratchets:
+ratchets:
+  basic:
+    enabled: true
+    config:
       function_length:
         max_lines: 100
+      line_length:
+        max_chars: 120
+  custom:
+    enabled: true
+    config:
+      import_order:
+        strict: false
+      docstring:
+        required: false
 ```
 
 ## Best Practices
 
-1. **Organization**
-   - Group related settings together
-   - Use meaningful names
-   - Document non-obvious settings
-   - Keep the file clean and readable
+1. **Version Control**
+   - Keep configurations in version control
+   - Document configuration changes
+   - Use environment variables for secrets
 
-2. **Version Control**
-   - Commit configuration changes
-   - Document major changes
-   - Use environment variables for sensitive values
-   - Keep a backup of working configurations
+2. **Organization**
+   - Group related settings
+   - Use clear, descriptive names
+   - Comment complex settings
+   - Maintain consistent structure
 
 3. **Maintenance**
-   - Review settings regularly
-   - Update patterns as needed
-   - Monitor false positives
-   - Adjust thresholds based on team feedback
+   - Review configurations regularly
+   - Update as requirements change
+   - Test configuration changes
+   - Document non-obvious settings
 
-## Example Configurations
+## Advanced Topics
 
-### Minimal Configuration
-
-```yaml
-ratchets:
-  basic:
-    enabled: true
-```
-
-### Full Configuration
-
-```yaml
-ratchets:
-  basic:
-    enabled: true
-    config:
-      no_print_statements:
-        enabled: true
-        severity: warning
-      no_debug_comments:
-        enabled: true
-        severity: info
-  custom:
-    enabled: true
-    config:
-      function_length:
-        enabled: true
-        max_lines: 50
-        severity: warning
-
-git:
-  base_branch: main
-  ignore_patterns:
-    - "*.pyc"
-    - "__pycache__/*"
-
-ci:
-  fail_on_violations: true
-  report_format: text
-
-pattern_groups:
-  style:
-    - no_print_statements
-    - function_length
-
-file_settings:
-  "tests/*":
-    ratchets:
-      no_print_statements:
-        enabled: false
-```
-
-## Next Steps
-
-- Learn about [Custom Ratchets](../advanced/custom_ratchets.md)
-- See [Real-world Examples](../examples/real_world.md)
-- Check out [Troubleshooting](../troubleshooting/common_issues.md) 
+- [Custom Ratchets](../advanced/custom_ratchets.md)
+- [CI/CD Integration](../advanced/ci_integration.md)
+- [Security Considerations](../advanced/security.md) 

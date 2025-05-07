@@ -57,7 +57,7 @@ def test_malformed_config_file(tmp_path):
     with pytest.raises(ConfigError):
         from coderatchet.core.config import load_config
 
-        load_config(config_file)
+        load_config(config_file, fallback_to_default=False)
 
 
 def test_git_network_error(tmp_path):
@@ -292,7 +292,7 @@ def test_config_inheritance_cycle(tmp_path):
     with pytest.raises(ConfigError):
         from coderatchet.core.config import load_config
 
-        load_config(config1)
+        load_config(config1, fallback_to_default=False)
 
 
 def test_invalid_config_values(tmp_path):
@@ -311,4 +311,4 @@ def test_invalid_config_values(tmp_path):
     with pytest.raises(ConfigError):
         from coderatchet.core.config import load_config
 
-        load_config(config_file)
+        load_config(config_file, fallback_to_default=False)

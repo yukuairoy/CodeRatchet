@@ -1,13 +1,16 @@
 # Quick Start Guide
 
-## Basic Usage
+This guide will help you get started with CodeRatchet quickly.
 
-1. Install CodeRatchet:
+## Installation
+
 ```bash
 pip install coderatchet
 ```
 
-2. Create a configuration file (`coderatchet.yaml`):
+## Basic Usage
+
+1. Create a configuration file (`coderatchet.yaml`):
 ```yaml
 ratchets:
   basic:
@@ -20,9 +23,52 @@ ratchets:
         max_lines: 50
 ```
 
-3. Run CodeRatchet:
+2. Run CodeRatchet:
 ```bash
 coderatchet check
+```
+
+## Example: Preventing Print Statements
+
+Here's a simple example to prevent print statements in your code:
+
+```python
+from coderatchet.core.ratchet import RegexBasedRatchetTest
+
+# Create a ratchet test
+ratchet = RegexBasedRatchetTest(
+    name="no_print",
+    pattern=r"print\(",
+    match_examples=["print('Hello')"],
+    non_match_examples=["logger.info('Hello')"],
+)
+
+# Run the test
+results = ratchet.check_file("your_file.py")
+```
+
+## Example: Function Length Check
+
+Check function length with a two-pass ratchet:
+
+```python
+from coderatchet.core.ratchet import TwoPassRatchetTest
+
+# Create a two-pass ratchet
+ratchet = TwoPassRatchetTest(
+    name="function_length",
+    first_pass=RegexBasedRatchetTest(
+        name="function_def",
+        pattern=r"def\s+\w+\s*\([^)]*\)\s*:",
+        match_examples=["def foo():"],
+        non_match_examples=["class Foo:"],
+    ),
+    first_pass_failure_to_second_pass_regex_part=lambda f: r"^(?!\s*$).+$",
+    first_pass_failure_filepath_for_testing="test.py",
+)
+
+# Run the test
+results = ratchet.check_file("your_file.py")
 ```
 
 ## Example Ratchets
@@ -96,9 +142,10 @@ if is_valid and z == 5:
 
 ## Next Steps
 
-- Read the [Configuration Guide](../core_concepts/configuration.md) for detailed settings
-- Check out [Advanced Usage](../advanced/custom_ratchets.md) for custom ratchets
-- See [Real-world Examples](../examples/real_world.md) for practical applications
+- Read the [Basic Usage](basic_usage.md) guide for more details
+- Check out [Core Concepts](core_concepts/ratchet_tests.md) to understand ratchet tests
+- Explore [Configuration](core_concepts/configuration.md) options
+- See [Examples](../examples/README.md) for more use cases
 
 ## Common Commands
 

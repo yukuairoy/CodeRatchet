@@ -264,6 +264,3 @@ def get_recently_broken_ratchets(
         return failures_with_commits[:limit]
 
     return unique_failures[:limit]
-
-
-# Remove test functions since they've been moved to test_recent_failures.py

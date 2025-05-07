@@ -99,7 +99,7 @@ def test_load_config_errors():
         f.flush()
 
         with pytest.raises(ConfigError):
-            load_config(f.name)
+            load_config(f.name, fallback_to_default=False)
 
 
 def test_load_ratchet_configs():

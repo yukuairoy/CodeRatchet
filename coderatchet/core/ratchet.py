@@ -7,53 +7,15 @@ from pathlib import Path
 from typing import Callable, List, Optional, Pattern, Tuple, TypeVar, Union
 
 import attr
-from loguru import logger
 
 from coderatchet.core.errors import ConfigError
+from coderatchet.core.test_failure import TestFailure
+from coderatchet.utils.logger import logger
 
 from .utils import RatchetError, load_ratchet_count
 
 _NEVER_MATCHING_REGEX: re.Pattern = re.compile("(?!)")
 T = TypeVar("T", bound="RatchetTest")
-
-
-@attr.s(frozen=True, auto_attribs=True)
-class TestFailure:
-    """A failure of a ratchet test."""
-
-    test_name: str
-    filepath: str
-    line_number: int
-    line_contents: str
-    commit_hash: Optional[str] = None
-    commit_message: Optional[str] = None
-    commit_author: Optional[str] = None
-    commit_date: Optional[str] = None
-
-    def __str__(self) -> str:
-        """Get a string representation of the failure."""
-        return f"{self.filepath}:{self.line_number}: {self.line_contents}"
-
-    @classmethod
-    def from_failure(cls, failure: "TestFailure", **kwargs) -> "TestFailure":
-        """Create a new TestFailure from an existing one with optional overrides.
-
-        Args:
-            failure: The existing failure to copy
-            **kwargs: Optional attributes to override
-
-        Returns:
-            New TestFailure instance
-        """
-        return cls(
-            test_name=kwargs.get("test_name", failure.test_name),
-            filepath=kwargs.get("filepath", failure.filepath),
-            line_number=kwargs.get("line_number", failure.line_number),
-            line_contents=kwargs.get("line_contents", failure.line_contents),
-            commit_hash=kwargs.get("commit_hash", failure.commit_hash),
-            commit_date=kwargs.get("commit_date", failure.commit_date),
-            commit_message=kwargs.get("commit_message", failure.commit_message),
-        )
 
 
 @attr.s(frozen=True, auto_attribs=True)
@@ -386,6 +348,28 @@ class FullFileRatchetTest(RegexBasedRatchetTest):
 
     regex_flags: int = 0
 
+    def __attrs_post_init__(self):
+        """Initialize the regex pattern and validate after instance creation."""
+        try:
+            # Validate the pattern immediately
+            regex = re.compile(self.pattern, self.regex_flags)
+            # Validate examples
+            for example in self.match_examples:
+                if not regex.search(example):
+                    raise RatchetError(
+                        "Match example '" + example + "' does not match "
+                        f"pattern '{self.pattern}'"
+                    )
+            for example in self.non_match_examples:
+                if regex.search(example):
+                    raise RatchetError(
+                        "Non-match example '" + example + "' matches "
+                        f"pattern '{self.pattern}'"
+                    )
+            object.__setattr__(self, "_regex", regex)
+        except re.error as e:
+            raise RatchetError(f"Invalid regex pattern '{self.pattern}': {e}")
+
     def collect_failures_from_lines(self, lines: List[str], filepath: str) -> None:
         """Collect failures from a list of lines.
 
@@ -401,7 +385,7 @@ class FullFileRatchetTest(RegexBasedRatchetTest):
         content = "\n".join(lines)
 
         # Check if the pattern matches
-        if self.regex.search(content, self.regex_flags):
+        if self.regex.search(content):
             failures = (
                 TestFailure(
                     test_name=self.name,
@@ -515,7 +499,6 @@ class TwoPassRatchetTest(RatchetTest):
                                 line_contents=line,
                             )
                         )
-                    break
 
         # Since we're frozen, we need to use object.__setattr__
         object.__setattr__(self, "_failures", tuple(failures))
@@ -554,59 +537,6 @@ class TwoPassRatchetTest(RatchetTest):
             match_examples=config.second_pass_examples or tuple(),
             non_match_examples=config.second_pass_non_examples or tuple(),
         )
-
-
-class PatternManager:
-    """Manages regex patterns and their compilation."""
-
-    def __init__(self):
-        """Initialize the pattern manager."""
-        self._pattern_cache = {}
-        self._cache_generation = 0  # Add a generation counter
-
-    def optimize_pattern(self, pattern: str) -> str:
-        """Optimize a regex pattern.
-
-        Args:
-            pattern: The pattern to optimize
-
-        Returns:
-            The optimized pattern
-        """
-        # For now, just return the pattern as is
-        # In the future, we can add pattern optimization logic here
-        return pattern
-
-    def get_pattern(self, pattern: str) -> Pattern:
-        """Get a compiled pattern.
-
-        Args:
-            pattern: The pattern to compile
-
-        Returns:
-            The compiled pattern
-        """
-        # Create a cache key that includes the generation
-        cache_key = (pattern, self._cache_generation)
-
-        # Check if we have a cached pattern
-        if cache_key not in self._pattern_cache:
-            # Optimize and compile the pattern
-            optimized = self.optimize_pattern(pattern)
-            # Use re.ASCII flag to ensure we get a new pattern instance
-            self._pattern_cache[cache_key] = re.compile(
-                optimized, re.ASCII if self._cache_generation % 2 else 0
-            )
-        return self._pattern_cache[cache_key]
-
-    def clear_cache(self) -> None:
-        """Clear the pattern cache."""
-        self._pattern_cache = {}
-        self._cache_generation += 1  # Increment the generation counter
-
-
-# Create a global pattern manager instance
-pattern_manager = PatternManager()
 
 
 def should_include_file(file_path: str, exclude_test_files: bool = True) -> bool:

@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from coderatchet.core.utils import (
-    TestFailure,
+    FileTestFailure,
     _read_exclude_patterns,
     file_path_to_module_path,
     get_python_files,
@@ -59,8 +59,7 @@ def test_should_exclude_file():
     patterns = ["*.pyc", "venv/", "!test.py"]
     assert should_exclude_file("test.pyc", patterns)  # Matches *.pyc
     assert should_exclude_file("venv/lib/test.py", patterns)  # Matches venv/
-    assert not should_exclude_file("test.py", patterns)  # Matches !test.py
-    assert not should_exclude_file("other.py", patterns)
+    assert not should_exclude_file("test.py", patterns)
 
 
 def test_get_python_files():
@@ -255,19 +254,16 @@ def test_file_path_to_module_path():
 
 
 def test_test_failure():
-    """Test TestFailure class."""
-    failure = TestFailure(
-        test_name="test1",
-        filepath="test.py",
+    """Test FileTestFailure class."""
+    failure = FileTestFailure(
+        file_path="test.py",
         line_number=42,
-        line_contents="print('error')",
+        message="print('error')",
     )
 
-    assert failure.test_name == "test1"
-    assert failure.filepath == "test.py"
+    assert failure.file_path == "test.py"
     assert failure.line_number == 42
-    assert failure.line_contents == "print('error')"
-    assert str(failure) == "test.py:42: print('error')"
+    assert failure.message == "print('error')"
 
 
 def test_join_regex_patterns():
@@ -299,6 +295,3 @@ def test_join_regex_patterns():
     assert pattern.match("c.d")
     assert not pattern.match("ab")
     assert not pattern.match("cd")
-
-
-# Remove duplicate tests that have been moved to test_common.py

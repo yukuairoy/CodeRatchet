@@ -171,7 +171,7 @@ def test_config_error_handling(tmp_path):
     invalid_yaml = tmp_path / "invalid.yaml"
     invalid_yaml.write_text("invalid: yaml: :")
     with pytest.raises(ConfigError, match="Failed to load configuration file"):
-        load_config(invalid_yaml)
+        load_config(invalid_yaml, fallback_to_default=False)
 
     # Test invalid ratchet config
     invalid_config = {
@@ -186,7 +186,7 @@ def test_config_error_handling(tmp_path):
         yaml.dump(invalid_config, f)
 
     with pytest.raises(ConfigError, match="must be a boolean"):
-        load_config(invalid_path)
+        load_config(invalid_path, fallback_to_default=False)
 
 
 def test_merge_configs():

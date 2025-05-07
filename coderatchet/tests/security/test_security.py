@@ -88,6 +88,9 @@ path = "../../../etc/passwd"
         ), patch(
             "coderatchet.core.recent_failures.GitIntegration",
             return_value=git_mock,
+        ), patch(
+            "coderatchet.core.recent_failures.get_ratchet_tests",
+            return_value={test},
         ):
             # Test that the system detects the path traversal attempt
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)
@@ -185,7 +188,7 @@ def test_sensitive_data_detection():
             api_key = "sk_test_1234567890abcdef"
             password = "password123"
             db_url = "postgres://user:pass@localhost/db"
-        """
+            """
         )
 
         # Initialize Git repository
@@ -253,7 +256,7 @@ def test_sensitive_data_detection():
             "coderatchet.core.config.create_ratchet_tests",
             return_value=tests,
         ), patch(
-            "coderatchet.core.config.get_ratchet_tests",
+            "coderatchet.core.recent_failures.get_ratchet_tests",
             return_value=set(tests),
         ), patch(
             "coderatchet.core.recent_failures.get_ratchet_test_files",

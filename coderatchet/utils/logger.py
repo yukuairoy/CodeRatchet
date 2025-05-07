@@ -2,18 +2,20 @@
 Logging configuration for the coderatchet package.
 """
 
-import logging
 import sys
 
-# Configure the logger
-logger = logging.getLogger("coderatchet")
-logger.setLevel(logging.INFO)
+from loguru import logger
 
-# Create console handler with formatting
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.INFO)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
+# Remove default handler
+logger.remove()
 
-# Add handler to logger
-logger.addHandler(handler)
+# Add custom handler with formatting
+logger.add(
+    sys.stdout,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    level="INFO",
+    colorize=True,
+)
+
+# Export the configured logger
+__all__ = ["logger"]
