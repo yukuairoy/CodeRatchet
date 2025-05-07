@@ -24,7 +24,6 @@ classifiers = [
 ]
 dependencies = [
     "loguru>=0.7.0",
-    "attrs>=23.0.0",
 ]
 
 [project.optional-dependencies]
