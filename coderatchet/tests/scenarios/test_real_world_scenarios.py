@@ -417,30 +417,48 @@ def new_feature():
         test = RegexBasedRatchetTest(
             name="no_print",
             pattern=r"print\(",
-            match_examples=["print('Hello')"],
-            non_match_examples=["logging.info('Hello')"],
+            match_examples=tuple(["print('Hello')"]),  # Use tuple instead of list
+            non_match_examples=tuple(
+                ["logging.info('Hello')"]
+            ),  # Use tuple instead of list
         )
 
         # Mock the ratchet tests function
-        with patch("coderatchet.core.config.get_ratchet_tests", return_value=[test]):
+        with patch(
+            "coderatchet.core.config.get_ratchet_tests", return_value=(test,)
+        ), patch(
+            "coderatchet.core.recent_failures.get_ratchet_tests", return_value={test}
+        ):
             # Test 1: Check main branch
-            failures = get_recently_broken_ratchets(limit=10, include_commits=True)
-            assert len(failures) == 1  # Only the print in main.py
+            test.collect_failures_from_file(main_file)
+            assert len(test.failures) == 1  # Only the print in main.py
+            test.clear_failures()
 
             # Test 2: Check feature branch
             subprocess.run(["git", "checkout", "feature/new-feature"], check=True)
-            failures = get_recently_broken_ratchets(limit=10, include_commits=True)
-            assert len(failures) == 2  # print in main.py and feature.py
+            test.collect_failures_from_file(feature_file)
+            assert len(test.failures) == 1  # print in feature.py
+            test.clear_failures()
+            test.collect_failures_from_file(main_file)
+            assert len(test.failures) == 1  # print in main.py
+            test.clear_failures()
 
             # Test 3: Check fixes branch
             subprocess.run(["git", "checkout", "feature/fixes"], check=True)
-            failures = get_recently_broken_ratchets(limit=10, include_commits=True)
-            assert len(failures) == 1  # Only the print in main.py
+            test.collect_failures_from_file(feature_file)
+            assert len(test.failures) == 0  # No print in feature.py (fixed)
+            test.clear_failures()
+            test.collect_failures_from_file(main_file)
+            assert len(test.failures) == 1  # print in main.py
+            test.clear_failures()
 
-            # Test 4: Check after merge
+            # Test 4: Check back on main
             subprocess.run(["git", "checkout", "main"], check=True)
-            failures = get_recently_broken_ratchets(limit=10, include_commits=True)
-            assert len(failures) == 1  # Only the print in main.py
+            test.collect_failures_from_file(feature_file)
+            assert len(test.failures) == 0  # No print in feature.py (merged fixes)
+            test.clear_failures()
+            test.collect_failures_from_file(main_file)
+            assert len(test.failures) == 1  # print in main.py
 
     finally:
         # Restore original directory
