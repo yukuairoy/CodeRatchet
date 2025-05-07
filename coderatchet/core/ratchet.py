@@ -488,6 +488,7 @@ class TwoPassRatchetTest(RatchetTest):
 
         # Second pass: check each line for second pass pattern
         failures = []
+        seen_failures = set()  # Track unique failures by line number and content
         for failure in first_pass_failures:
             # Check all lines after the first pass match for the second pattern
             # failure.line_number is 1-based, so we need to subtract 1 for the slice
@@ -495,14 +496,18 @@ class TwoPassRatchetTest(RatchetTest):
                 lines[failure.line_number - 1 :], failure.line_number
             ):
                 if self._second_pass_regex.search(line):
-                    failures.append(
-                        TestFailure(
-                            test_name=self.name,
-                            filepath=filepath,
-                            line_number=i,
-                            line_contents=line,
+                    # Create a unique key for this failure
+                    failure_key = (i, line.strip())
+                    if failure_key not in seen_failures:
+                        seen_failures.add(failure_key)
+                        failures.append(
+                            TestFailure(
+                                test_name=self.name,
+                                filepath=filepath,
+                                line_number=i,
+                                line_contents=line,
+                            )
                         )
-                    )
                     break
 
         # Since we're frozen, we need to use object.__setattr__
