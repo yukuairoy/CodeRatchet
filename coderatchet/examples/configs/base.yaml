@@ -1,0 +1,46 @@
+# Base CodeRatchet configuration
+# This file contains the default settings that other configs can override
+
+ratchets:
+  basic:
+    enabled: true
+    config:
+      no_print:
+        enabled: true
+      no_bare_except:
+        enabled: true
+      no_todo:
+        enabled: true
+      no_magic_numbers:
+        enabled: true
+      no_long_lines:
+        max_length: 100
+  custom:
+    enabled: true
+    config:
+      function_length:
+        max_lines: 50
+        ignore_test_files: false
+        ignore_docstring: false
+      import_order:
+        enabled: true
+        strict: false
+        sections:
+          - stdlib
+          - third_party
+          - local
+
+git:
+  base_branch: main
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
+    - "tests/*"
+    - "docs/*"
+    - "examples/*"
+
+ci:
+  fail_on_violations: true
+  report_format: text
+  check_all_files: false

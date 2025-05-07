@@ -1,0 +1,39 @@
+# Strict CodeRatchet configuration
+ratchets:
+  basic:
+    enabled: true
+    config:
+      no_print:
+        enabled: true
+      no_bare_except:
+        enabled: true
+      no_todo:
+        enabled: true
+      no_magic_numbers:
+        enabled: true
+      no_long_lines:
+        max_length: 79  # PEP 8 standard
+  custom:
+    enabled: true
+    config:
+      function_length:
+        max_lines: 30  # More strict than default
+      import_order:
+        enabled: true
+        strict: true  # No exceptions allowed
+
+git:
+  base_branch: main
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
+    - "tests/*"
+    - "docs/*"
+    - "examples/*"
+
+ci:
+  fail_on_violations: true
+  report_format: text
+  fail_on_warnings: true  # Also fail on warnings
+  check_all_files: true  # Check all files, not just changed ones 

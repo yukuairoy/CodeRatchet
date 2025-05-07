@@ -1,0 +1,24 @@
+# Basic CodeRatchet configuration
+ratchets:
+  basic:
+    enabled: true
+    config: {}
+  custom:
+    enabled: true
+    config:
+      function_length:
+        max_lines: 50
+      import_order:
+        enabled: true
+
+git:
+  base_branch: main
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
+    - "tests/*"
+
+ci:
+  fail_on_violations: true
+  report_format: text

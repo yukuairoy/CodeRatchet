@@ -1,0 +1,40 @@
+# Relaxed CodeRatchet configuration
+ratchets:
+  basic:
+    enabled: true
+    config:
+      no_print:
+        enabled: false  # Allow print statements
+      no_bare_except:
+        enabled: true
+      no_todo:
+        enabled: false  # Allow TODO comments
+      no_magic_numbers:
+        enabled: true
+        ignore_numbers: [0, 1, 2, 100]  # Common numbers to ignore
+      no_long_lines:
+        max_length: 120  # More permissive line length
+  custom:
+    enabled: true
+    config:
+      function_length:
+        max_lines: 100  # More permissive function length
+      import_order:
+        enabled: true
+        strict: false  # Allow some flexibility in import order
+
+git:
+  base_branch: main
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
+    - "tests/*"
+    - "docs/*"
+    - "examples/*"
+    - "*.ipynb"  # Ignore Jupyter notebooks
+
+ci:
+  fail_on_violations: false  # Don't fail CI on violations
+  report_format: text
+  check_all_files: false  # Only check changed files 

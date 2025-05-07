@@ -1,0 +1,56 @@
+# Custom CodeRatchet configuration
+ratchets:
+  basic:
+    enabled: false  # Disable basic ratchets
+  custom:
+    enabled: true
+    config:
+      function_length:
+        max_lines: 40
+        ignore_test_files: true  # Don't check test files
+        ignore_docstring: true  # Don't count docstring lines
+      import_order:
+        enabled: true
+        strict: true
+        sections:
+          - stdlib
+          - third_party
+          - local
+        stdlib_modules:
+          - os
+          - sys
+          - re
+          - json
+          - datetime
+          - pathlib
+          - typing
+      docstring_style:
+        enabled: true
+        style: google  # Options: google, numpy, rest
+        require_args: true
+        require_returns: true
+        require_raises: true
+      complexity:
+        enabled: true
+        max_cyclomatic: 10
+        max_cognitive: 7
+        ignore_test_files: true
+
+git:
+  base_branch: main
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
+    - "tests/*"
+    - "docs/*"
+    - "examples/*"
+    - "*.ipynb"
+
+ci:
+  fail_on_violations: true
+  report_format: json  # Output JSON for machine processing
+  check_all_files: true
+  exclude_patterns:
+    - "setup.py"
+    - "*/__init__.py" 
