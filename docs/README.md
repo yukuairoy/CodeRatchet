@@ -60,4 +60,3 @@ We welcome contributions to improve our documentation! Please see our [Contribut
 If you need help or have questions:
 - Check the [Troubleshooting](troubleshooting/common_issues.md) section
 - Open an issue on our [GitHub repository](https://github.com/yukuairoy/CodeRatchet/issues)
-- Join our [Discussions](https://github.com/yukuairoy/CodeRatchet/discussions) 

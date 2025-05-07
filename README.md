@@ -75,8 +75,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Documentation](docs/)
 - [Issue Tracker](https://github.com/yukuairoy/CodeRatchet/issues)
-- [Discussions](https://github.com/yukuairoy/CodeRatchet/discussions)
-
-## Acknowledgments
-
-Thanks to all contributors who have helped shape CodeRatchet! 
