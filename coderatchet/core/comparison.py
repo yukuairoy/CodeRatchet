@@ -111,9 +111,8 @@ class _checkout_state:
     def __enter__(self):
         try:
             # Try to stash local changes
-            subprocess.check_call(
-                ["git", "stash", "push", "-m", "coderatchet_temp_stash"]
-            )
+            stash_cmd = ["git", "stash", "push", "-m", "coderatchet_temp_stash"]
+            subprocess.check_call(stash_cmd)
             self.stashed = True
         except subprocess.CalledProcessError:
             # No local changes to stash

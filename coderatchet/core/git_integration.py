@@ -859,71 +859,51 @@ class GitIntegration:
             )
 
     def get_submodule_fetchRecurseSubmodules(self, path: str) -> bool:
-        """Get fetch recurse submodules setting of a Git submodule.
+        """Get the fetchRecurseSubmodules setting for a submodule.
 
         Args:
             path: Path to the submodule
 
         Returns:
-            True if fetch recurse submodules is enabled
+            True if fetchRecurseSubmodules is enabled, False otherwise
+
+        Raises:
+            GitError: If submodule does not exist or command fails
         """
-        if self.is_detached_head():
-            raise GitError("Git repository is in detached HEAD state")
         try:
-            output = (
-                subprocess.check_output(
-                    [
-                        "git",
-                        "config",
-                        "-f",
-                        ".gitmodules",
-                        f"submodule.{path}.fetchRecurseSubmodules",
-                    ],
-                    stderr=subprocess.STDOUT,
-                    cwd=self.repo_path,
-                )
-                .decode()
-                .strip()
+            result = self._run_git_command(
+                ["config", "--get", f"submodule.{path}.fetchRecurseSubmodules"]
             )
-            return output.lower() == "true"
-        except subprocess.CalledProcessError as e:
-            raise GitError(
-                f"Failed to get submodule fetch recurse submodules setting: {e.output.decode()}"
-            )
+            return result.stdout.strip().lower() == "true"
+        except GitError as e:
+            if "does not exist" in str(e):
+                raise GitError(f"Submodule {path} does not exist")
+            raise
 
     def set_submodule_fetchRecurseSubmodules(
         self, path: str, fetch_recurse: bool
     ) -> None:
-        """Set fetch recurse submodules setting of a Git submodule.
+        """Set the fetchRecurseSubmodules setting for a submodule.
 
         Args:
             path: Path to the submodule
-            fetch_recurse: True to enable fetch recurse submodules
+            fetch_recurse: Whether to enable fetchRecurseSubmodules
+
+        Raises:
+            GitError: If submodule does not exist or command fails
         """
-        if self.is_detached_head():
-            raise GitError("Git repository is in detached HEAD state")
         try:
-            subprocess.check_output(
+            self._run_git_command(
                 [
-                    "git",
                     "config",
-                    "-f",
-                    ".gitmodules",
                     f"submodule.{path}.fetchRecurseSubmodules",
                     str(fetch_recurse).lower(),
-                ],
-                stderr=subprocess.STDOUT,
-                cwd=self.repo_path,
+                ]
             )
-            subprocess.check_output(
-                ["git", "submodule", "sync", path],
-                stderr=subprocess.STDOUT,
-                cwd=self.repo_path,
-            )
-        except subprocess.CalledProcessError as e:
-            raise GitError(
-                f"Failed to set submodule fetch recurse submodules setting: {e.output.decode()}"
-            )
+        except GitError as e:
+            if "does not exist" in str(e):
+                raise GitError(f"Submodule {path} does not exist")
+            raise
 
     def get_remotes(self) -> List[str]:
         """Get list of Git remotes.

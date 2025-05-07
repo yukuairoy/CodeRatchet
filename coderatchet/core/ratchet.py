@@ -9,7 +9,6 @@ from typing import Callable, List, Optional, Pattern, Tuple, TypeVar, Union
 import attr
 from loguru import logger
 
-from coderatchet.core.config import RatchetConfig
 from coderatchet.core.errors import ConfigError
 
 from .utils import RatchetError, load_ratchet_count
@@ -135,16 +134,20 @@ class RatchetTest:
         # Validate match examples
         for example in self.match_examples:
             if not self.regex.search(example):
-                raise RatchetError(
-                    f"Match example '{example}' does not match pattern '{self.pattern}'"
+                msg = (
+                    f"Match example '{example}' does not match "
+                    f"pattern '{self.pattern}'"
                 )
+                raise RatchetError(msg)
 
         # Validate non-match examples
         for example in self.non_match_examples:
             if self.regex.search(example):
-                raise RatchetError(
-                    f"Non-match example '{example}' matches pattern '{self.pattern}'"
+                msg = (
+                    f"Non-match example '{example}' matches "
+                    f"pattern '{self.pattern}'"
                 )
+                raise RatchetError(msg)
 
     def add_failure(self, failure: TestFailure) -> None:
         """Add a failure to the list of failures."""
@@ -211,12 +214,14 @@ class RegexBasedRatchetTest(RatchetTest):
             for example in self.match_examples:
                 if not regex.search(example):
                     raise RatchetError(
-                        f"Match example '{example}' does not match pattern '{self.pattern}'"
+                        "Match example '" + example + "' does not match "
+                        f"pattern '{self.pattern}'"
                     )
             for example in self.non_match_examples:
                 if regex.search(example):
                     raise RatchetError(
-                        f"Non-match example '{example}' matches pattern '{self.pattern}'"
+                        "Non-match example '" + example + "' matches "
+                        f"pattern '{self.pattern}'"
                     )
             object.__setattr__(self, "_regex", regex)
         except re.error as e:
@@ -441,22 +446,25 @@ class TwoPassRatchetTest(RatchetTest):
         # Validate examples
         for example in self.match_examples:
             if not self._second_pass_regex.search(example):
-                raise RatchetError(
-                    f"Match example '{example}' does not match pattern '{self.second_pass_pattern}'"
+                msg = (
+                    f"Match example '{example}' does not match "
+                    f"pattern '{self.second_pass_pattern}'"
                 )
+                raise RatchetError(msg)
 
         for example in self.non_match_examples:
             if self._second_pass_regex.search(example):
-                raise RatchetError(
-                    f"Non-match example '{example}' matches pattern '{self.second_pass_pattern}'"
+                msg = (
+                    f"Non-match example '{example}' matches "
+                    f"pattern '{self.second_pass_pattern}'"
                 )
+                raise RatchetError(msg)
 
         # If we have a function to generate second pass patterns from first pass failures,
         # validate it with the test filepath
-        if (
-            self.first_pass_failure_to_second_pass_regex_part
-            and self.first_pass_failure_filepath_for_testing
-        ):
+        has_failure_func = self.first_pass_failure_to_second_pass_regex_part
+        has_test_filepath = self.first_pass_failure_filepath_for_testing
+        if has_failure_func and has_test_filepath:
             # Create a test failure
             test_failure = TestFailure(
                 test_name=self.first_pass.name,
@@ -471,9 +479,8 @@ class TwoPassRatchetTest(RatchetTest):
                 )
                 re.compile(pattern)
             except (re.error, Exception) as e:
-                raise RatchetError(
-                    f"Failed to generate or compile second pass pattern: {e}"
-                )
+                msg = f"Failed to generate or compile second pass pattern: {e}"
+                raise RatchetError(msg)
 
     def collect_failures_from_lines(self, lines: List[str], filepath: str) -> None:
         """Collect failures from lines.
@@ -514,7 +521,7 @@ class TwoPassRatchetTest(RatchetTest):
         object.__setattr__(self, "_failures", tuple(failures))
 
     @classmethod
-    def from_config(cls, config: "RatchetConfig") -> "TwoPassRatchetTest":
+    def from_config(cls, config) -> "TwoPassRatchetTest":
         """Create a TwoPassRatchetTest from a configuration.
 
         Args:

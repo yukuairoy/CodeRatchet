@@ -35,20 +35,26 @@ class FunctionLengthRatchet(RatchetTest):
             match_examples: Example functions that should match
             non_match_examples: Example functions that should not match
         """
+        example_short = "def short_function():\n    pass"
+        example_medium = (
+            "def medium_function():\n" "    x = 1\n" "    y = 2\n" "    return x + y"
+        )
+        example_long = (
+            "def long_function():\n"
+            "    x = 1\n    y = 2\n    z = 3\n"
+            "    a = 4\n    b = 5\n    c = 6\n"
+            "    d = 7\n    e = 8\n    f = 9\n"
+            "    g = 10\n"
+            "    return x + y + z + a + b + c + d + e + f + g"
+        )
+
         super().__init__(
             name=name,
             description=description,
             allowed_count=allowed_count,
             exclude_test_files=exclude_test_files,
-            match_examples=match_examples
-            or [
-                "def short_function():\n    pass",
-                "def medium_function():\n    x = 1\n    y = 2\n    return x + y",
-            ],
-            non_match_examples=non_match_examples
-            or [
-                "def long_function():\n    x = 1\n    y = 2\n    z = 3\n    a = 4\n    b = 5\n    c = 6\n    d = 7\n    e = 8\n    f = 9\n    g = 10\n    return x + y + z + a + b + c + d + e + f + g",
-            ],
+            match_examples=match_examples or [example_short, example_medium],
+            non_match_examples=non_match_examples or [example_long],
         )
         object.__setattr__(self, "max_lines", max_lines)
 
@@ -75,13 +81,17 @@ class FunctionLengthRatchet(RatchetTest):
                     function_length = end_line - start_line + 1
 
                     if function_length > self.max_lines:
+                        msg = (
+                            f"Function '{node.name}' is {function_length} lines long, "
+                            f"exceeding the maximum of {self.max_lines} lines"
+                        )
                         failures.append(
                             TestFailure(
                                 test_name=self.name,
                                 filepath=filepath,
                                 line_number=start_line,
                                 line_contents=lines[start_line - 1],
-                                message=f"Function '{node.name}' is {function_length} lines long, exceeding the maximum of {self.max_lines} lines",
+                                message=msg,
                             )
                         )
         except SyntaxError:

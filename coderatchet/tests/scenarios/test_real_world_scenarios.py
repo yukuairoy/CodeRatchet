@@ -101,10 +101,13 @@ def hello():
             assert len(failures) == 5
             assert all("print" in f.line_contents for f in failures)
             assert len({f.commit_hash for f in failures}) == 1  # All from same commit
-            assert any(
-                'print("Another print")  # Still broken' in f.line_contents
+            # Check for specific line content
+            has_broken_print = any(
+                line in f.line_contents
                 for f in failures
-            )  # Current violation
+                for line in ['print("Another print")  # Still broken']
+            )
+            assert has_broken_print
 
             # Test 4: Add a new file with violations
             new_file = src_dir / "new_file.py"
@@ -122,9 +125,7 @@ def hello():
 
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)
             # All print statements from history are found because they have different line numbers or indentation
-            assert (
-                len(failures) == 7
-            )  # 5 from old file (with different line numbers/indentation) + 2 from new file
+            assert len(failures) == 7  # 5 from old file + 2 from new file
             assert all("print" in f.line_contents for f in failures)
             assert len({f.commit_hash for f in failures}) == 2  # Two different commits
             assert len({f.filepath for f in failures}) == 2  # Two different files
@@ -139,7 +140,7 @@ def hello():
             # All print statements from history are found because they have different line numbers or indentation
             assert (
                 len(failures) == 8
-            )  # 5 from old file path + 1 from renamed file + 2 from new file
+            )  # 5 from old file + 1 from renamed + 2 from new file
             assert all("print" in f.line_contents for f in failures)
             assert len({f.commit_hash for f in failures}) == 2  # Two different commits
             assert (

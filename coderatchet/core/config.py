@@ -93,9 +93,11 @@ class RatchetConfig:
 
         if self.is_two_pass:
             if not self.second_pass_pattern:
-                raise ConfigError(
-                    f"Second pass pattern is required for two-pass ratchet '{self.name}'"
+                msg = (
+                    f"Second pass pattern is required for two-pass "
+                    f"ratchet '{self.name}'"
                 )
+                raise ConfigError(msg)
             try:
                 re.compile(self.second_pass_pattern)
             except re.error as e:
@@ -224,7 +226,8 @@ def load_config(
                 )
             if ratchet_config["severity"] not in {"error", "warning", "info"}:
                 raise ConfigError(
-                    f"'severity' field for ratchet '{name}' must be one of: error, warning, info"
+                    "'severity' field for ratchet '" + name + "' "
+                    "must be one of: error, warning, info"
                 )
 
         return config

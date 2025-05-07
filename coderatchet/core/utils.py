@@ -325,9 +325,8 @@ def ratchet_values_path() -> str:
     Returns:
         Absolute path to the ratchet values file
     """
-    return os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "..", "..", "ratchet_values.json"
-    )
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(current_dir, "..", "..", "ratchet_values.json")
 
 
 def get_ratchet_values() -> Dict[str, int]:
