@@ -1,6 +1,6 @@
 # CodeRatchet
 
-A Python tool for enforcing code quality standards through ratchet tests.
+A Python tool for enforcing code quality standards through ratchet tests. CodeRatchet helps teams maintain and improve code quality by preventing the introduction of specific patterns or practices that have been identified as problematic. It's particularly useful for gradually improving legacy codebases by enforcing stricter standards over time.
 
 ## Features
 
