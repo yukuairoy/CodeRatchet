@@ -8,13 +8,13 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from coderatchet.core.config import get_ratchet_tests
 from coderatchet.core.ratchet import (
     FullFileRatchetTest,
     RegexBasedRatchetTest,
     TwoPassRatchetTest,
 )
 from coderatchet.core.recent_failures import get_recently_broken_ratchets
-from coderatchet.core.config import get_ratchet_tests
 from coderatchet.core.utils import get_ratchet_test_files
 
 
@@ -50,12 +50,14 @@ def hello():
         test = RegexBasedRatchetTest(
             name="no_print",
             pattern=r"print\(",
-            match_examples=["print('Hello')"],
-            non_match_examples=["logging.info('Hello')"],
+            match_examples=("print('Hello')",),
+            non_match_examples=("logging.info('Hello')",),
         )
 
         # Mock the ratchet tests function
-        with patch("coderatchet.core.config.get_ratchet_tests", return_value=[test]):
+        with patch(
+            "coderatchet.core.recent_failures.get_ratchet_tests", return_value={test}
+        ):
             # Test 1: Initial state - should have one violation
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)
             assert len(failures) == 1
@@ -322,7 +324,10 @@ def test_real_world_performance(tmp_path):
             tests = [test]
             return set(tests) if return_set else tests
 
-        with patch("coderatchet.core.recent_failures.get_ratchet_tests", side_effect=mock_get_ratchet_tests):
+        with patch(
+            "coderatchet.core.recent_failures.get_ratchet_tests",
+            side_effect=mock_get_ratchet_tests,
+        ):
             # Add and commit the large file
             subprocess.run(["git", "add", "src"], check=True)
             subprocess.run(["git", "commit", "-m", "Add large file"], check=True)

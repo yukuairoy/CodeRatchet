@@ -43,6 +43,7 @@ def compare_ratchets(
     """
     # Get ratchet tests
     from .config import get_ratchet_tests
+
     tests = get_ratchet_tests()
 
     # Get counts for both states
@@ -177,7 +178,9 @@ class _TempComparisonRatchetTest(RatchetTest):
         )  # Clear any existing failures
 
         base_count = self.base_ratchet.get_total_count_from_files(files_to_evaluate)
-        compare_count = self.compare_with_ratchet.get_total_count_from_files(files_to_evaluate)
+        compare_count = self.compare_with_ratchet.get_total_count_from_files(
+            files_to_evaluate
+        )
         return base_count
 
 

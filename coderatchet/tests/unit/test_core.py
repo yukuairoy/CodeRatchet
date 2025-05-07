@@ -144,7 +144,7 @@ def test_two_pass_ratchet():
 
     assert len(test.failures) == 1
     assert test.failures[0].line_contents == "        self.value = 42"
-    assert test.failures[0].line_number == 2
+    assert test.failures[0].line_number == 3
 
     # Test non-matching
     test.clear_failures()
@@ -173,9 +173,9 @@ def test_two_pass_ratchet():
     )
     assert len(test.failures) == 2
     assert test.failures[0].line_contents == "        self.value = 42"
-    assert test.failures[0].line_number == 2
+    assert test.failures[0].line_number == 3
     assert test.failures[1].line_contents == "        self.other = 'test'"
-    assert test.failures[1].line_number == 6
+    assert test.failures[1].line_number == 7
 
     # Test no matches in first pass
     test.clear_failures()
@@ -232,7 +232,7 @@ def test_two_pass_ratchet():
     )
     assert len(test.failures) == 1
     assert test.failures[0].line_contents == "        self.value = 42"
-    assert test.failures[0].line_number == 5
+    assert test.failures[0].line_number == 6
 
 
 def test_ratchet_test_examples():

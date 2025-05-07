@@ -6,9 +6,9 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+from coderatchet.core.config import get_ratchet_tests
 from coderatchet.core.ratchet import RegexBasedRatchetTest
 from coderatchet.core.utils import get_ratchet_test_files, should_exclude_file
-from coderatchet.core.config import get_ratchet_tests
 
 
 def test_should_exclude_file():

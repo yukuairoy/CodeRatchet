@@ -6,4 +6,4 @@ from .utils import RatchetError
 class ConfigError(RatchetError):
     """Configuration error."""
 
-    pass 
+    pass

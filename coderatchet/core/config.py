@@ -8,17 +8,13 @@ import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, Set
+from typing import Any, Dict, Generic, List, Optional, Set, TypeVar, Union
 
 import yaml
 from loguru import logger
 
 from .errors import ConfigError
-from .ratchet import (
-    RatchetTest,
-    RegexBasedRatchetTest,
-    TwoPassRatchetTest,
-)
+from .ratchet import RatchetTest, RegexBasedRatchetTest, TwoPassRatchetTest
 from .ratchets import FunctionLengthRatchet
 from .utils import RatchetError
 
@@ -488,6 +484,10 @@ def load_ratchet_configs(
         if not config.get("enabled", True):
             continue
 
+        # Skip the "basic" and "custom" ratchets since they are handled separately
+        if name in ["basic", "custom"]:
+            continue
+
         ratchet_config = RatchetConfig(
             name=name,
             pattern=config.get("pattern", ""),
@@ -508,7 +508,9 @@ def load_ratchet_configs(
     return ratchet_configs
 
 
-def get_ratchet_tests(return_set: bool = False) -> Union[List[RatchetTest], Set[RatchetTest]]:
+def get_ratchet_tests(
+    return_set: bool = False,
+) -> Union[List[RatchetTest], Set[RatchetTest]]:
     """Get all ratchet tests to check.
 
     Args:

@@ -35,7 +35,8 @@ class FunctionLengthRatchet(RatchetTest):
             description=description,
             allowed_count=allowed_count,
             exclude_test_files=exclude_test_files,
-            match_examples=match_examples or [
+            match_examples=match_examples
+            or [
                 "def short_function():\n    pass",
                 "def medium_function():\n    x = 1\n    y = 2\n    return x + y",
             ],
@@ -46,7 +47,9 @@ class FunctionLengthRatchet(RatchetTest):
         )
         self.max_lines = max_lines
 
-    def collect_failures_from_lines(self, lines: List[str], filepath: str = "") -> List[TestFailure]:
+    def collect_failures_from_lines(
+        self, lines: List[str], filepath: str = ""
+    ) -> List[TestFailure]:
         """Collect failures from lines of code.
 
         Args:
@@ -81,4 +84,4 @@ class FunctionLengthRatchet(RatchetTest):
             # This is not a ratchet failure, so we return an empty list
             pass
 
-        return failures 
+        return failures

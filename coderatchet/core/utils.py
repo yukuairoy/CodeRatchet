@@ -124,9 +124,19 @@ def get_python_files(
     """
     directory = Path(directory)
     files = set()
-    for file_path in directory.rglob("*.py"):
-        if file_path.is_file() and not file_path.is_symlink():
-            files.add(file_path.absolute())
+    try:
+        # Use rglob to find all Python files recursively
+        for file_path in directory.rglob("*.py"):
+            # Skip symlinks and non-files
+            if not file_path.is_file() or file_path.is_symlink():
+                continue
+            # Convert to absolute path and normalize
+            abs_path = file_path.absolute()
+            # Add to set
+            files.add(abs_path)
+    except (PermissionError, OSError) as e:
+        logger.warning(f"Error accessing {directory}: {e}")
+
     return files if return_set else sorted(list(files))
 
 
@@ -190,7 +200,7 @@ def should_exclude_file(filepath: str, exclusion_patterns: List[str]) -> bool:
                 if fnmatch(filepath, pattern_without_negation):
                     return False
             else:
-                if "/" not in filepath and fnmatch(filename, pattern_without_negation):
+                if fnmatch(filename, pattern_without_negation):
                     return False
 
     # Then check if the file matches any exclusion pattern
@@ -204,9 +214,23 @@ def should_exclude_file(filepath: str, exclusion_patterns: List[str]) -> bool:
                 for i in range(len(path_parts)):
                     if fnmatch(path_parts[i], pattern):
                         return True
+            # Handle patterns with wildcards in directory paths
+            elif "*" in pattern and "/" in pattern:
+                if fnmatch(filepath, pattern):
+                    return True
             # Regular pattern matching
             elif fnmatch(filename, pattern):
                 return True
+
+    # If we have any negation patterns and the file doesn't match any of them,
+    # it should be excluded by default
+    has_negation = any(p.startswith("!") for p in exclusion_patterns)
+    if has_negation:
+        # Only exclude if there's also a non-negation pattern that would match all files
+        has_wildcard_pattern = any(
+            not p.startswith("!") and p == "*.py" for p in exclusion_patterns
+        )
+        return has_wildcard_pattern
 
     return False
 
@@ -224,30 +248,47 @@ def get_ratchet_test_files(additional_dirs: Optional[List[Path]] = None) -> List
     """
     # Get exclusion patterns
     exclusion_patterns = _get_exclusion_patterns(additional_dirs)
-    print(f"DEBUG: Exclusion patterns: {exclusion_patterns}")
+    logger.debug(f"Exclusion patterns: {exclusion_patterns}")
 
     # Get files to check
     files = set()
     if additional_dirs:
         for directory in additional_dirs:
-            print(f"DEBUG: Searching in additional directory: {directory}")
-            files.update(get_python_files(directory, return_set=True))
+            logger.debug(f"Searching in additional directory: {directory}")
+            try:
+                files.update(get_python_files(directory, return_set=True))
+            except Exception as e:
+                logger.warning(f"Error searching directory {directory}: {e}")
     else:
         current_dir = Path.cwd()
-        print(f"DEBUG: Searching in current directory: {current_dir}")
-        files.update(get_python_files(current_dir, return_set=True))
+        logger.debug(f"Searching in current directory: {current_dir}")
+        try:
+            files.update(get_python_files(current_dir, return_set=True))
+        except Exception as e:
+            logger.warning(f"Error searching current directory: {e}")
 
-    print(f"DEBUG: Found files before filtering: {files}")
+    logger.debug(f"Found files before filtering: {files}")
 
     # Filter out excluded files
     filtered_files = []
     for file_path in files:
-        should_exclude = should_exclude_file(str(file_path), exclusion_patterns)
-        print(f"DEBUG: Checking {file_path}, should_exclude={should_exclude}")
-        if not should_exclude:
-            filtered_files.append(file_path)
+        try:
+            # Convert to relative path for pattern matching
+            rel_path = (
+                file_path.relative_to(Path.cwd()) if not additional_dirs else file_path
+            )
+            should_exclude = should_exclude_file(str(rel_path), exclusion_patterns)
+            logger.debug(f"Checking {file_path}, should_exclude={should_exclude}")
+            if not should_exclude:
+                filtered_files.append(file_path)
+        except ValueError:
+            # If relative_to fails, use absolute path
+            should_exclude = should_exclude_file(str(file_path), exclusion_patterns)
+            logger.debug(f"Checking {file_path}, should_exclude={should_exclude}")
+            if not should_exclude:
+                filtered_files.append(file_path)
 
-    print(f"DEBUG: Files after filtering: {filtered_files}")
+    logger.debug(f"Files after filtering: {filtered_files}")
     return sorted(filtered_files)
 
 

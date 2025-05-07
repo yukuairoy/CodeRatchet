@@ -10,13 +10,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from coderatchet.core.config import get_ratchet_tests
 from coderatchet.core.git_integration import GitIntegration
 from coderatchet.core.ratchet import RegexBasedRatchetTest
 from coderatchet.core.recent_failures import (
     GitHistoryManager,
     get_recently_broken_ratchets,
 )
-from coderatchet.core.config import get_ratchet_tests
 
 
 def test_path_traversal_prevention(tmp_path):
@@ -56,9 +56,9 @@ path = "../../../etc/passwd"
         )
 
         # Mock the ratchet tests function and os.path.exists
-        with patch("coderatchet.core.config.get_ratchet_tests", return_value=[test]), patch(
-            "os.path.exists"
-        ) as mock_exists:
+        with patch(
+            "coderatchet.core.config.get_ratchet_tests", return_value=[test]
+        ), patch("os.path.exists") as mock_exists:
             # Test that the system doesn't actually access the malicious path
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)
             assert len(failures) == 1
@@ -170,8 +170,11 @@ def test_sensitive_data_detection():
         subprocess.run(["git", "commit", "-m", "Add test file"], cwd=tmpdir, check=True)
 
         # Mock the ratchet tests function and file collection
-        with patch("coderatchet.core.config.get_ratchet_tests", return_value=tests), patch(
-            "coderatchet.core.recent_failures.get_ratchet_test_files", return_value=[str(test_file)]
+        with patch(
+            "coderatchet.core.config.get_ratchet_tests", return_value=tests
+        ), patch(
+            "coderatchet.core.recent_failures.get_ratchet_test_files",
+            return_value=[str(test_file)],
         ):
             # Test for sensitive data
             failures = get_recently_broken_ratchets(limit=10, include_commits=True)

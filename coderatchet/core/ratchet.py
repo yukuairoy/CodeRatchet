@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Callable, List, Optional, Pattern, Tuple, TypeVar, Union
 
 import attr
-from coderatchet.core.errors import ConfigError
 from loguru import logger
+
+from coderatchet.core.errors import ConfigError
 
 from .utils import RatchetError, load_ratchet_count
 
@@ -428,9 +429,12 @@ class TwoPassRatchetTest(RatchetTest):
     def __attrs_post_init__(self):
         """Initialize after instance creation."""
         # Since we're frozen, we need to use object.__setattr__
-        object.__setattr__(
-            self, "_second_pass_regex", re.compile(self.second_pass_pattern)
-        )
+        try:
+            object.__setattr__(
+                self, "_second_pass_regex", re.compile(self.second_pass_pattern)
+            )
+        except re.error as e:
+            raise RatchetError(f"Invalid second pass pattern: {e}")
 
         # Validate examples
         for example in self.match_examples:
@@ -484,21 +488,20 @@ class TwoPassRatchetTest(RatchetTest):
         failures = []
         for failure in first_pass_failures:
             # Check all lines after the first pass match for the second pattern
-            has_second_pass_match = False
-            for i, line in enumerate(lines[failure.line_number :], failure.line_number):
+            # failure.line_number is 1-based, so we need to subtract 1 for the slice
+            for i, line in enumerate(
+                lines[failure.line_number - 1 :], failure.line_number
+            ):
                 if self._second_pass_regex.search(line):
-                    has_second_pass_match = True
-                    break
-
-            if has_second_pass_match:
-                failures.append(
-                    TestFailure(
-                        test_name=self.name,
-                        filepath=filepath,
-                        line_number=failure.line_number,
-                        line_contents=failure.line_contents,
+                    failures.append(
+                        TestFailure(
+                            test_name=self.name,
+                            filepath=filepath,
+                            line_number=i,
+                            line_contents=line,
+                        )
                     )
-                )
+                    break
 
         # Since we're frozen, we need to use object.__setattr__
         object.__setattr__(self, "_failures", tuple(failures))

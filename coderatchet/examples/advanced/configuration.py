@@ -78,7 +78,7 @@ class RatchetConfigManager:
         # Add custom ratchets if enabled
         if self.config["ratchets"]["custom"]["enabled"]:
             custom_config = self.config["ratchets"]["custom"]["config"]
-            
+
             # Get custom ratchets and create new instances with custom configuration
             for ratchet in get_custom_ratchets():
                 if ratchet.name in custom_config:

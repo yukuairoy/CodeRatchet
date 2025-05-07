@@ -7,8 +7,10 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 import pytest
 
+from coderatchet.core.config import RatchetConfig, get_ratchet_tests
 from coderatchet.core.git_integration import GitIntegration
 from coderatchet.core.ratchet import RegexBasedRatchetTest, TestFailure
 from coderatchet.core.recent_failures import (
@@ -16,7 +18,6 @@ from coderatchet.core.recent_failures import (
     GitHistoryManager,
     get_recently_broken_ratchets,
 )
-from coderatchet.core.config import get_ratchet_tests, RatchetConfig
 
 
 def test_get_recently_broken_ratchets(tmp_path):
@@ -49,7 +50,9 @@ def test_get_recently_broken_ratchets(tmp_path):
         )
 
         # Mock the ratchet tests function and git integration
-        with patch("coderatchet.core.recent_failures.get_ratchet_tests") as mock_get_tests:
+        with patch(
+            "coderatchet.core.recent_failures.get_ratchet_tests"
+        ) as mock_get_tests:
             mock_get_tests.return_value = {test}
 
             # Create mock GitIntegration
@@ -176,8 +179,11 @@ def test_recent_failures(tmp_path):
     )
 
     # Mock the ratchet tests function and get_ratchet_test_files
-    with patch("coderatchet.core.recent_failures.get_ratchet_tests") as mock_get_tests, \
-         patch("coderatchet.core.recent_failures.get_ratchet_test_files") as mock_get_files:
+    with patch(
+        "coderatchet.core.recent_failures.get_ratchet_tests"
+    ) as mock_get_tests, patch(
+        "coderatchet.core.recent_failures.get_ratchet_test_files"
+    ) as mock_get_files:
         mock_get_tests.return_value = {test1, test2}
         mock_get_files.return_value = [file1, file2]
 
@@ -353,9 +359,7 @@ def test_get_recently_broken_ratchets_empty():
 
 def test_get_ratchet_tests_error_handling():
     """Test error handling in ratchet test creation."""
-    with patch(
-        "coderatchet.core.recent_failures.get_ratchet_tests"
-    ) as mock_get_tests:
+    with patch("coderatchet.core.recent_failures.get_ratchet_tests") as mock_get_tests:
         # Test with config loading error
         mock_get_tests.side_effect = Exception("Failed to load configs")
         with pytest.raises(Exception) as excinfo:

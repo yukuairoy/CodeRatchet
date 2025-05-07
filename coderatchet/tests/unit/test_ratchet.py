@@ -234,22 +234,19 @@ def test_two_pass_ratchet_test():
         "test.py",
     )
     assert len(test.failures) == 1
-    assert test.failures[0].line_contents == "class MyClass:"
+    assert test.failures[0].line_contents == "        self.value = 42"
+    assert test.failures[0].line_number == 3
 
     # Test non-matching
     test.clear_failures()
     test.collect_failures_from_lines(
-        [
-            "class MyClass:",
-            "    def __init__(self):",
-            "        value = 42",  # No self.value
-        ],
+        ["class MyClass:", "    def __init__(self):", "        value = 42"],
         "test.py",
     )
     assert len(test.failures) == 0
 
     # Test example validation
-    test.test_examples()  # Should pass
+    test.test_examples()
 
 
 def test_pattern_manager():
@@ -323,11 +320,15 @@ def test_recent_failures(tmp_path):
 
     # Mock the ratchet tests function and get_ratchet_test_files
     from unittest.mock import patch
+
     from coderatchet.core.config import get_ratchet_tests
     from coderatchet.core.utils import get_ratchet_test_files
 
-    with patch("coderatchet.core.config.get_ratchet_tests", return_value=[test1, test2]), \
-         patch("coderatchet.core.utils.get_ratchet_test_files", return_value=[file1, file2]):
+    with patch(
+        "coderatchet.core.config.get_ratchet_tests", return_value=[test1, test2]
+    ), patch(
+        "coderatchet.core.utils.get_ratchet_test_files", return_value=[file1, file2]
+    ):
         # Test without commit info
         failures = get_recently_broken_ratchets(limit=10, include_commits=False)
         assert len(failures) == 3  # Two print statements and one import

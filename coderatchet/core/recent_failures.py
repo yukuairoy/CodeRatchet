@@ -6,12 +6,12 @@ import logging
 import os
 import subprocess
 from datetime import datetime, timezone
-from typing import List, Optional, Set, Tuple, Union
 from pathlib import Path
+from typing import List, Optional, Set, Tuple, Union
 
 import attr
 
-from .config import get_ratchet_tests, create_ratchet_tests, load_ratchet_configs
+from .config import create_ratchet_tests, get_ratchet_tests, load_ratchet_configs
 from .git_integration import GitIntegration
 from .ratchet import RatchetTest, TestFailure
 from .utils import get_ratchet_test_files
@@ -62,7 +62,9 @@ class GitHistoryManager:
                 if len(parts) == 3:
                     commit_hash, commit_date_str, commit_message = parts
                     try:
-                        commit_date = datetime.fromtimestamp(int(commit_date_str), tz=timezone.utc)
+                        commit_date = datetime.fromtimestamp(
+                            int(commit_date_str), tz=timezone.utc
+                        )
                         history.append((commit_hash, commit_date, commit_message))
                     except (ValueError, TypeError):
                         logger.warning(
