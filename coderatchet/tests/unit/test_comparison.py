@@ -115,7 +115,7 @@ def test_temp_comparison_ratchet_test():
 
 def test_compare_ratchets_with_mocks():
     """Test comparing ratchets with mocked git operations."""
-    with patch("coderatchet.core.comparison._get_ratchet_tests") as mock_get_tests:
+    with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
         with patch(
             "coderatchet.core.comparison._get_ratchet_counts"
         ) as mock_get_counts:
@@ -162,7 +162,7 @@ def test_compare_ratchets_with_mocks():
 
 def test_compare_ratchets_with_zero_previous():
     """Test comparing ratchets when previous count is zero."""
-    with patch("coderatchet.core.comparison._get_ratchet_tests") as mock_get_tests:
+    with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
         with patch(
             "coderatchet.core.comparison._get_ratchet_counts"
         ) as mock_get_counts:
@@ -197,7 +197,7 @@ def test_compare_ratchets_with_zero_previous():
 
 def test_compare_ratchets_with_commits():
     """Test comparing ratchets with commit information included."""
-    with patch("coderatchet.core.comparison._get_ratchet_tests") as mock_get_tests:
+    with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
         with patch(
             "coderatchet.core.comparison._get_ratchet_counts"
         ) as mock_get_counts:
@@ -318,46 +318,48 @@ def test_compare_ratchets(tmp_path):
     )
 
     # Mock the ratchet tests function
-    original_get_tests = compare_ratchets.__globals__["_get_ratchet_tests"]
-    try:
-        compare_ratchets.__globals__["_get_ratchet_tests"] = lambda: [test1, test2]
-
-        # Test comparison
-        try:
-            comparisons = compare_ratchets("HEAD~1", "HEAD")
-        except subprocess.CalledProcessError:
-            # If git checkout fails, create a mock comparison
-            comparisons = [
-                RatchetComparison(
-                    test_name="test1",
-                    current_count=1,
-                    previous_count=0,
-                    difference=1,
-                    percentage_change=float("inf"),
-                    is_worse=True,
-                ),
-                RatchetComparison(
-                    test_name="test2",
-                    current_count=0,
-                    previous_count=0,
-                    difference=0,
-                    percentage_change=0.0,
-                    is_worse=False,
-                ),
+    with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
+        with patch("coderatchet.core.comparison._get_ratchet_counts") as mock_get_counts:
+            mock_get_tests.return_value = [test1, test2]
+            mock_get_counts.side_effect = [
+                {"test1": 0, "test2": 0},  # Previous state
+                {"test1": 1, "test2": 0},  # Current state
             ]
 
-        # Verify comparisons
-        assert len(comparisons) == 2
-        assert comparisons[0].test_name == "test1"
-        assert comparisons[0].current_count == 1
-        assert comparisons[0].previous_count == 0
-        assert comparisons[0].difference == 1
-        assert comparisons[0].is_worse is True
+            # Test comparison
+            try:
+                comparisons = compare_ratchets("HEAD~1", "HEAD")
+            except subprocess.CalledProcessError:
+                # If git checkout fails, create a mock comparison
+                comparisons = [
+                    RatchetComparison(
+                        test_name="test1",
+                        current_count=1,
+                        previous_count=0,
+                        difference=1,
+                        percentage_change=float("inf"),
+                        is_worse=True,
+                    ),
+                    RatchetComparison(
+                        test_name="test2",
+                        current_count=0,
+                        previous_count=0,
+                        difference=0,
+                        percentage_change=0.0,
+                        is_worse=False,
+                    ),
+                ]
 
-        assert comparisons[1].test_name == "test2"
-        assert comparisons[1].current_count == 0
-        assert comparisons[1].previous_count == 0
-        assert comparisons[1].difference == 0
-        assert comparisons[1].is_worse is False
-    finally:
-        compare_ratchets.__globals__["_get_ratchet_tests"] = original_get_tests
+            # Verify comparisons
+            assert len(comparisons) == 2
+            assert comparisons[0].test_name == "test1"
+            assert comparisons[0].current_count == 1
+            assert comparisons[0].previous_count == 0
+            assert comparisons[0].difference == 1
+            assert comparisons[0].is_worse is True
+
+            assert comparisons[1].test_name == "test2"
+            assert comparisons[1].current_count == 0
+            assert comparisons[1].previous_count == 0
+            assert comparisons[1].difference == 0
+            assert comparisons[1].is_worse is False
