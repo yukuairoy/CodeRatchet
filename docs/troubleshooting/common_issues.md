@@ -1,217 +1,183 @@
-# Troubleshooting Guide
+# Common Issues and Solutions
 
-## Common Issues
+This guide covers common issues you might encounter when using CodeRatchet and how to resolve them.
 
-### Installation Issues
+## Configuration Issues
 
-1. **Package Not Found**
-   ```
-   ERROR: Could not find a version that satisfies the requirement coderatchet
-   ```
-   
-   Solution:
-   - Verify Python version (3.8+ required)
-   - Update pip: `pip install --upgrade pip`
-   - Try installing with: `pip install -e .`
+### Invalid Configuration File
 
-2. **Dependency Conflicts**
-   ```
-   ERROR: pip's dependency resolver could not resolve dependencies
-   ```
-   
-   Solution:
-   - Create a new virtual environment
-   - Install with: `pip install -e ".[dev]"`
-   - Update dependencies: `pip install -U -r requirements.txt`
+**Symptoms:**
+- Configuration loading fails
+- Ratchet tests don't run as expected
 
-### Configuration Issues
+**Solutions:**
+1. Check your YAML syntax
+2. Verify all required fields are present
+3. Use the Python API to validate your configuration:
+```python
+from coderatchet.core.config import RatchetConfigManager
 
-1. **Invalid Configuration**
-   ```
-   ERROR: Invalid configuration in coderatchet.yaml
-   ```
-   
-   Solution:
-   - Run `coderatchet config --validate`
-   - Check YAML syntax
-   - Verify pattern formats
-   - Use example configurations as reference
+try:
+    config = RatchetConfigManager("coderatchet.yaml")
+    print("Configuration is valid")
+except Exception as e:
+    print(f"Configuration error: {e}")
+```
 
-2. **Missing Configuration**
-   ```
-   ERROR: Could not find configuration file
-   ```
-   
-   Solution:
-   - Create default config: `coderatchet init`
-   - Specify config path: `coderatchet check --config path/to/config.yaml`
-   - Check working directory
+### Missing Configuration
 
-### Pattern Issues
+**Symptoms:**
+- Default configuration is used instead of custom settings
+- Ratchet tests don't match your requirements
 
-1. **Pattern Not Matching**
-   ```
-   WARNING: Pattern 'your_pattern' did not match any examples
-   ```
-   
-   Solution:
-   - Test pattern: `coderatchet test --pattern "your_pattern"`
-   - Check regex syntax
-   - Verify examples
-   - Use pattern testing tools
+**Solutions:**
+1. Ensure your configuration file exists
+2. Check the file path in your code:
+```python
+from coderatchet.core.config import RatchetConfigManager
 
-2. **False Positives**
-   ```
-   ERROR: Pattern matches unintended code
-   ```
-   
-   Solution:
-   - Make pattern more specific
-   - Add non-match examples
-   - Use negative lookahead/lookbehind
-   - Consider using TwoPassRatchetTest
+# Use absolute path if needed
+config = RatchetConfigManager("/absolute/path/to/coderatchet.yaml")
+```
 
-### Git Integration Issues
+## Git Integration Issues
 
-1. **Git Hook Not Working**
-   ```
-   ERROR: pre-commit hook failed
-   ```
-   
-   Solution:
-   - Check hook permissions: `chmod +x .git/hooks/pre-commit`
-   - Verify hook installation: `coderatchet init --git`
-   - Check git configuration
-   - Run hook manually: `coderatchet pre-commit`
+### Git Repository Not Found
 
-2. **Git History Issues**
-   ```
-   ERROR: Could not get git history
-   ```
-   
-   Solution:
-   - Check git repository: `git status`
-   - Verify branch exists
-   - Check git credentials
-   - Try with specific commit: `coderatchet history --since HEAD~1`
+**Symptoms:**
+- Git-related operations fail
+- History comparison doesn't work
+
+**Solutions:**
+1. Ensure you're in a git repository
+2. Check git initialization:
+```python
+import subprocess
+
+try:
+    subprocess.check_call(["git", "rev-parse", "--git-dir"])
+    print("Git repository found")
+except subprocess.CalledProcessError:
+    print("Not in a git repository")
+```
+
+### Commit History Issues
+
+**Symptoms:**
+- Can't compare with previous commits
+- History view is empty
+
+**Solutions:**
+1. Check if you have commits:
+```python
+import subprocess
+
+try:
+    result = subprocess.check_output(["git", "log", "--oneline"])
+    print("Commit history found")
+except subprocess.CalledProcessError:
+    print("No commit history")
+```
+
+2. Verify commit references:
+```python
+from coderatchet.core.comparison import compare_ratchets
+
+try:
+    results = compare_ratchets("HEAD~1", "HEAD")
+    print("Comparison successful")
+except Exception as e:
+    print(f"Comparison failed: {e}")
+```
+
+## Pattern Matching Issues
+
+### Invalid Regex Patterns
+
+**Symptoms:**
+- Pattern compilation fails
+- Unexpected matches or non-matches
+
+**Solutions:**
+1. Test your patterns:
+```python
+import re
+
+try:
+    pattern = re.compile("your_pattern")
+    print("Pattern is valid")
+except re.error as e:
+    print(f"Invalid pattern: {e}")
+```
+
+2. Use example validation:
+```python
+from coderatchet.core.ratchet import RegexBasedRatchetTest
+
+ratchet = RegexBasedRatchetTest(
+    name="test",
+    pattern="your_pattern",
+    match_examples=["should match"],
+    non_match_examples=["should not match"]
+)
+```
 
 ### Performance Issues
 
-1. **Slow Execution**
-   ```
-   WARNING: Analysis taking longer than expected
-   ```
-   
-   Solution:
-   - Optimize patterns
-   - Use file exclusions
-   - Adjust worker count: `CODERATCHET_MAX_WORKERS=4`
-   - Consider using caching
+**Symptoms:**
+- Slow pattern matching
+- High memory usage
 
-2. **Memory Usage**
-   ```
-   ERROR: Memory error during analysis
-   ```
-   
-   Solution:
-   - Reduce file size limits
-   - Process files in batches
-   - Clear cache: `coderatchet clean`
-   - Increase system memory
+**Solutions:**
+1. Optimize your patterns
+2. Use more specific patterns
+3. Consider using two-pass ratchets for complex cases
 
-### Output Issues
+## File Access Issues
 
-1. **No Color Output**
-   ```
-   Output appears without color formatting
-   ```
-   
-   Solution:
-   - Check terminal support
-   - Set environment: `CODERATCHET_NO_COLOR=0`
-   - Force color: `--color always`
-   - Update terminal configuration
+### Permission Denied
 
-2. **Report Generation Failed**
-   ```
-   ERROR: Could not generate report
-   ```
-   
-   Solution:
-   - Check output directory permissions
-   - Verify format support
-   - Use absolute paths
-   - Try different format: `--format text`
+**Symptoms:**
+- Can't read files
+- Operations fail with permission errors
 
-## Advanced Troubleshooting
+**Solutions:**
+1. Check file permissions
+2. Use try-except blocks:
+```python
+from coderatchet.core.ratchet import run_ratchets_on_file
 
-### Debugging
-
-1. Enable verbose output:
-```bash
-coderatchet check --verbose
+try:
+    results = run_ratchets_on_file("your_file.py", ratchets)
+except PermissionError:
+    print("Permission denied")
 ```
 
-2. Check logs:
-```bash
-coderatchet --debug
+### File Not Found
+
+**Symptoms:**
+- Files can't be found
+- Operations fail with file not found errors
+
+**Solutions:**
+1. Verify file paths
+2. Use absolute paths if needed
+3. Check file existence:
+```python
+from pathlib import Path
+
+file_path = Path("your_file.py")
+if file_path.exists():
+    print("File found")
+else:
+    print("File not found")
 ```
 
-3. Run tests:
-```bash
-pytest coderatchet/tests/
-```
+## Getting Help
 
-### System Information
+If you encounter issues not covered here:
 
-Gather system information:
-```bash
-coderatchet info
-```
-
-This shows:
-- Python version
-- OS details
-- Package versions
-- Configuration
-
-### Common Error Codes
-
-- 1: Violations found (expected)
-- 2: Configuration error
-- 3: System error
-- 4: Git error
-- 5: Pattern error
-
-### Getting Help
-
-1. Check documentation:
-   - [Configuration Guide](../core_concepts/configuration.md)
-   - [API Reference](../api/core.md)
-   - [Examples](../examples/README.md)
-
-2. Report issues:
-   - Include error messages
-   - Provide configuration
-   - Share minimal example
-   - Describe expected behavior
-
-## Best Practices
-
-1. **Version Control**
-   - Keep configuration in version control
-   - Document changes
-   - Use consistent patterns
-   - Review regularly
-
-2. **Testing**
-   - Test patterns thoroughly
-   - Include edge cases
-   - Verify fixes
-   - Monitor false positives
-
-3. **Maintenance**
-   - Update regularly
-   - Clean old data
-   - Monitor performance
-   - Review patterns 
+1. Check the [API Reference](../api/core.md)
+2. Look at the [Examples](../examples/README.md)
+3. Review the [Core Concepts](../core_concepts/ratchet_tests.md)
+4. Open an issue on GitHub 

@@ -1,6 +1,68 @@
 # CLI Command Reference
 
-This document provides detailed information about CodeRatchet's command-line interface.
+> **Note**: CLI support is not yet implemented in CodeRatchet. This document describes the planned CLI interface. For now, please use the Python API as described in the [Quick Start Guide](../getting_started/quick_start.md).
+
+## Current Usage
+
+Until CLI support is implemented, please use the Python API:
+
+```python
+from coderatchet.core.config import RatchetConfigManager
+from coderatchet.core.ratchet import run_ratchets_on_file
+
+# Initialize configuration
+config = RatchetConfigManager("coderatchet.yaml")
+
+# Get configured ratchets
+ratchets = config.get_ratchets()
+
+# Run checks on a file
+results = run_ratchets_on_file("your_file.py", ratchets)
+```
+
+For more information, see the [Quick Start Guide](../getting_started/quick_start.md) and [API Reference](core.md).
+
+## Planned CLI Interface
+
+The following commands are planned for future implementation:
+
+### check
+Run ratchet checks on current code.
+
+```bash
+coderatchet check [options]
+```
+
+Options:
+- `--limit N`: Maximum number of failures to show (default: 10)
+- `--since COMMIT`: Check since specific commit
+- `--include-commits`: Include commit information
+- `--debug`: Enable debug mode
+- `--config FILE`: Use specific configuration file
+
+### history
+View violation history.
+
+```bash
+coderatchet history [options]
+```
+
+Options:
+- `--limit N`: Maximum number of entries to show
+- `--since COMMIT`: Show history since specific commit
+- `--format FORMAT`: Output format (text, json)
+- `--debug`: Enable debug mode
+
+### config
+Show current configuration.
+
+```bash
+coderatchet config [options]
+```
+
+Options:
+- `--format FORMAT`: Output format (text, json, yaml)
+- `--debug`: Enable debug mode
 
 ## Basic Commands
 

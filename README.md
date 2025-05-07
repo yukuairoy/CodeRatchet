@@ -32,9 +32,19 @@ ratchets:
         max_lines: 50
 ```
 
-2. Run CodeRatchet:
-```bash
-coderatchet check
+2. Use CodeRatchet in your Python code:
+```python
+from coderatchet.core.config import RatchetConfigManager
+from coderatchet.core.ratchet import run_ratchets_on_file
+
+# Initialize configuration
+config = RatchetConfigManager("coderatchet.yaml")
+
+# Get configured ratchets
+ratchets = config.get_ratchets()
+
+# Run checks on a file
+results = run_ratchets_on_file("your_file.py", ratchets)
 ```
 
 ## Documentation

@@ -1,11 +1,32 @@
 # CLI Commands
 
-CodeRatchet provides a command-line interface for running code quality checks.
+> **Note**: CLI support is not yet implemented in CodeRatchet. This document describes the planned CLI interface. For now, please use the Python API as described in the [Quick Start Guide](../getting_started/quick_start.md).
 
-## Basic Commands
+## Current Usage
+
+Until CLI support is implemented, please use the Python API:
+
+```python
+from coderatchet.core.config import RatchetConfigManager
+from coderatchet.core.ratchet import run_ratchets_on_file
+
+# Initialize configuration
+config = RatchetConfigManager("coderatchet.yaml")
+
+# Get configured ratchets
+ratchets = config.get_ratchets()
+
+# Run checks on a file
+results = run_ratchets_on_file("your_file.py", ratchets)
+```
+
+For more information, see the [Quick Start Guide](../getting_started/quick_start.md) and [API Reference](../api/core.md).
+
+## Planned CLI Interface
+
+The following commands are planned for future implementation:
 
 ### check
-
 Run ratchet tests on your codebase:
 
 ```bash
@@ -19,7 +40,6 @@ Options:
 - `--format`: Output format (text, json, html)
 
 ### history
-
 View violation history:
 
 ```bash
@@ -33,7 +53,6 @@ Options:
 - `--by-test`: Group by test
 
 ### config
-
 Show or validate configuration:
 
 ```bash

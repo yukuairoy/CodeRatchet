@@ -4,7 +4,7 @@ CodeRatchet uses YAML configuration files to define ratchet tests and their sett
 
 ## Basic Configuration
 
-A basic configuration file (`coderatchet.yaml`):
+Create a `coderatchet.yaml` file in your project root:
 
 ```yaml
 ratchets:
@@ -20,7 +20,9 @@ ratchets:
 
 ## Configuration Structure
 
-### Basic Options
+### Ratchets Section
+
+The `ratchets` section defines which ratchet tests to run:
 
 ```yaml
 ratchets:
@@ -31,50 +33,44 @@ ratchets:
     enabled: true  # Enable/disable custom ratchets
     config:        # Custom ratchet configuration
       function_length:
-        max_lines: 50
+        max_lines: 50  # Maximum lines per function
 ```
 
 ### Git Options
 
 ```yaml
 git:
-  base_branch: main           # Base branch for comparison
-  ignore_patterns:            # Patterns to ignore in git operations
+  base_branch: main  # Base branch for comparison
+  ignore_patterns:   # Files to ignore
     - "*.pyc"
-    - "__pycache__/"
-    - "venv/"
+    - "__pycache__/*"
+    - "*.egg-info/*"
 ```
 
 ### CI Options
 
 ```yaml
 ci:
-  fail_on_violations: true    # Whether to fail CI on violations
-  report_format: text         # Output format (text/json)
-  check_all_files: false      # Check all files or just changed ones
-  exclude_patterns:           # Additional patterns to exclude
-    - "tests/"
-    - "docs/"
+  fail_on_violations: true  # Fail CI on violations
+  report_format: text       # Report format (text, json)
 ```
 
 ## Ratchet Configuration
 
-### Basic Ratchet
+### Basic Ratchets
+
+Basic ratchets are built-in tests that can be enabled/disabled:
 
 ```yaml
 ratchets:
   basic:
     enabled: true
-    config:
-      no_print:
-        pattern: "print\\("
-        match_examples:
-          - "print('Hello')"
-        non_match_examples:
-          - "logger.info('Hello')"
+    config: {}
 ```
 
-### Two-Pass Ratchet
+### Custom Ratchets
+
+Custom ratchets can be configured with specific settings:
 
 ```yaml
 ratchets:
@@ -82,39 +78,27 @@ ratchets:
     enabled: true
     config:
       function_length:
-        is_two_pass: true
-        first_pass:
-          pattern: "def\\s+\\w+\\s*\\([^)]*\\)\\s*:"
-          match_examples:
-            - "def foo():"
-          non_match_examples:
-            - "class Foo:"
-        second_pass:
-          pattern: "^(?!\\s*$).+$"
+        max_lines: 50
 ```
 
 ## File Exclusion
 
-Configure file exclusions in `ratchet_excluded.txt`:
+You can exclude files from ratchet checks using patterns:
 
-```
-# Exclude patterns
-*.pyc
-__pycache__
-venv/
-!important.py
-test2.py
+```yaml
+git:
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
 ```
 
 ## Environment Variables
 
-CodeRatchet supports environment variables for sensitive configuration:
+Configuration can be overridden using environment variables:
 
-```yaml
-git:
-  api_key: ${GIT_API_KEY}
-  base_url: ${GIT_BASE_URL}
-```
+- `CODERATCHET_CONFIG`: Path to configuration file
+- `CODERATCHET_DEBUG`: Enable debug mode
 
 ## Configuration Examples
 
@@ -124,18 +108,20 @@ git:
 ratchets:
   basic:
     enabled: true
-    config:
-      function_length:
-        max_lines: 30
-      line_length:
-        max_chars: 80
+    config: {}
   custom:
     enabled: true
     config:
-      import_order:
-        strict: true
-      docstring:
-        required: true
+      function_length:
+        max_lines: 30
+git:
+  base_branch: main
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+ci:
+  fail_on_violations: true
+  report_format: text
 ```
 
 ### Relaxed Configuration
@@ -144,41 +130,33 @@ ratchets:
 ratchets:
   basic:
     enabled: true
-    config:
-      function_length:
-        max_lines: 100
-      line_length:
-        max_chars: 120
+    config: {}
   custom:
     enabled: true
     config:
-      import_order:
-        strict: false
-      docstring:
-        required: false
+      function_length:
+        max_lines: 100
+git:
+  base_branch: develop
+  ignore_patterns:
+    - "*.pyc"
+    - "__pycache__/*"
+    - "*.egg-info/*"
+    - "tests/*"
+ci:
+  fail_on_violations: false
+  report_format: json
 ```
 
 ## Best Practices
 
-1. **Version Control**
-   - Keep configurations in version control
-   - Document configuration changes
-   - Use environment variables for secrets
-
-2. **Organization**
-   - Group related settings
-   - Use clear, descriptive names
-   - Comment complex settings
-   - Maintain consistent structure
-
-3. **Maintenance**
-   - Review configurations regularly
-   - Update as requirements change
-   - Test configuration changes
-   - Document non-obvious settings
+1. Version control your configuration file
+2. Keep configurations organized and documented
+3. Use environment variables for sensitive settings
+4. Regularly review and update configurations
 
 ## Advanced Topics
 
-- [Custom Ratchets](../advanced/custom_ratchets.md)
-- [CI/CD Integration](../advanced/ci_integration.md)
-- [Security Considerations](../advanced/security.md) 
+- Custom ratchets
+- CI/CD integration
+- Security considerations 

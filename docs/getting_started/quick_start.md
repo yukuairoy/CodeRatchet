@@ -23,9 +23,19 @@ ratchets:
         max_lines: 50
 ```
 
-2. Run CodeRatchet:
-```bash
-coderatchet check
+2. Use CodeRatchet in your Python code:
+```python
+from coderatchet.core.config import RatchetConfigManager
+from coderatchet.core.ratchet import run_ratchets_on_file
+
+# Initialize configuration
+config = RatchetConfigManager("coderatchet.yaml")
+
+# Get configured ratchets
+ratchets = config.get_ratchets()
+
+# Run checks on a file
+results = run_ratchets_on_file("your_file.py", ratchets)
 ```
 
 ## Example: Preventing Print Statements
@@ -147,14 +157,13 @@ if is_valid and z == 5:
 - Explore [Configuration](core_concepts/configuration.md) options
 - See [Examples](../examples/README.md) for more use cases
 
-## Common Commands
+## Common Operations
 
-| Command | Description |
-|---------|-------------|
-| `coderatchet check` | Run ratchet checks on current code |
-| `coderatchet history` | View violation history |
-| `coderatchet config` | Show current configuration |
-| `coderatchet --help` | Show all available commands |
+| Operation | Description | Python Code |
+|-----------|-------------|-------------|
+| Run checks | Check code against ratchet rules | `run_ratchets_on_file("file.py", ratchets)` |
+| View history | Get violation history | `compare_ratchets("HEAD~1", "HEAD")` |
+| Show config | Display current configuration | `RatchetConfigManager().config` |
 
 ## Troubleshooting
 
