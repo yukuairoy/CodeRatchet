@@ -168,15 +168,15 @@ class _TempComparisonRatchetTest(RatchetTest):
 
     def collect_failures_from_lines(self, lines: List[str], filepath: str = "") -> None:
         object.__setattr__(
-            self.base_ratchet, "_failures", []
+            self.base_ratchet, "_failures", tuple()
         )  # Clear any existing failures
         object.__setattr__(
-            self.compare_with_ratchet, "_failures", []
+            self.compare_with_ratchet, "_failures", tuple()
         )  # Clear any existing failures
 
         self.base_ratchet.collect_failures_from_lines(lines, filepath)
         self.compare_with_ratchet.collect_failures_from_lines(lines, filepath)
-        object.__setattr__(self, "_failures", self.base_ratchet.failures)
+        object.__setattr__(self, "_failures", self.base_ratchet._failures)
 
     def get_total_count_from_files(self, files_to_evaluate: List[Path]) -> int:
         object.__setattr__(
