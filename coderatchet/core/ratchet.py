@@ -2,7 +2,6 @@
 Core ratchet test classes and functionality.
 """
 
-import ast
 import re
 from pathlib import Path
 from typing import Callable, List, Optional, Pattern, Tuple, TypeVar, Union
@@ -10,6 +9,7 @@ from typing import Callable, List, Optional, Pattern, Tuple, TypeVar, Union
 import attr
 from loguru import logger
 
+from coderatchet.core.config import RatchetConfig
 from coderatchet.core.errors import ConfigError
 
 from .utils import RatchetError, load_ratchet_count

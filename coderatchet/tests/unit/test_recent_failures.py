@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from coderatchet.core.config import RatchetConfig, get_ratchet_tests
 from coderatchet.core.git_integration import GitIntegration
 from coderatchet.core.ratchet import RegexBasedRatchetTest, TestFailure
 from coderatchet.core.recent_failures import (

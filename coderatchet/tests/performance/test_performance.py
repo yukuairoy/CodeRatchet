@@ -127,7 +127,7 @@ def test_pattern_compilation_performance():
 
     start_time = time.time()
 
-    test = RegexBasedRatchetTest(
+    RegexBasedRatchetTest(
         name="test",
         pattern="|".join(patterns),
         match_examples=["pattern0"],

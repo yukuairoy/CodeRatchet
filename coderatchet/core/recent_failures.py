@@ -7,13 +7,13 @@ import os
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import attr
 
-from .config import create_ratchet_tests, get_ratchet_tests, load_ratchet_configs
+from .config import get_ratchet_tests
 from .git_integration import GitIntegration
-from .ratchet import RatchetTest, TestFailure
+from .ratchet import TestFailure
 from .utils import get_ratchet_test_files
 
 logger = logging.getLogger(__name__)

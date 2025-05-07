@@ -21,12 +21,6 @@ from .utils import RatchetError
 T = TypeVar("T")
 
 
-class ConfigError(RatchetError):
-    """Configuration error."""
-
-    pass
-
-
 @dataclass
 class EnvValue(Generic[T]):
     """A configuration value that can be overridden by environment variables."""

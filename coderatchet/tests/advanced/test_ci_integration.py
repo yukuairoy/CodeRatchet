@@ -1,8 +1,5 @@
 """Tests for CI integration functionality."""
 
-import os
-from pathlib import Path
-
 from coderatchet.core.ratchet import RegexBasedRatchetTest
 from coderatchet.examples.advanced.ci_integration import CIRatchetRunner
 

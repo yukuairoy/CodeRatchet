@@ -5,7 +5,6 @@ Integration tests for the coderatchet package.
 import subprocess
 from unittest.mock import patch
 
-from coderatchet.core.config import get_ratchet_tests
 from coderatchet.core.ratchet import RegexBasedRatchetTest, TwoLineRatchetTest
 from coderatchet.core.recent_failures import get_recently_broken_ratchets
 from coderatchet.core.utils import get_ratchet_test_files, write_ratchet_counts

@@ -248,7 +248,7 @@ def test_ratchet_test_examples():
 
     # Test with incorrect examples
     with pytest.raises(RatchetError):
-        test_bad = RegexBasedRatchetTest(
+        RegexBasedRatchetTest(
             name="test_examples",
             pattern="foo",
             match_examples=["bar"],  # Should not match

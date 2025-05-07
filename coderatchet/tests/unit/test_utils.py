@@ -27,42 +27,40 @@ from coderatchet.core.utils import (
 def test_should_exclude_file():
     """Test file exclusion logic."""
     # Test basic exclusion
-    assert should_exclude_file("test.py", ["*.py"]) == True
-    assert should_exclude_file("test.txt", ["*.py"]) == False
+    assert should_exclude_file("test.py", ["*.py"])
+    assert not should_exclude_file("test.txt", ["*.py"])
 
     # Test directory exclusion
-    assert should_exclude_file("tests/test.py", ["tests/*"]) == True
-    assert should_exclude_file("src/test.py", ["tests/*"]) == False
+    assert should_exclude_file("tests/test.py", ["tests/*"])
+    assert not should_exclude_file("src/test.py", ["tests/*"])
 
     # Test negation patterns
-    assert should_exclude_file("test.py", ["!test.py", "*.py"]) == False
-    assert should_exclude_file("other.py", ["!test.py", "*.py"]) == True
+    assert not should_exclude_file("test.py", ["!test.py", "*.py"])
+    assert should_exclude_file("other.py", ["!test.py", "*.py"])
 
     # Test multiple patterns
-    assert should_exclude_file("test.py", ["*.txt", "*.py"]) == True
-    assert should_exclude_file("test.txt", ["*.txt", "*.py"]) == True
-    assert should_exclude_file("test.md", ["*.txt", "*.py"]) == False
+    assert should_exclude_file("test.py", ["*.txt", "*.py"])
+    assert should_exclude_file("test.txt", ["*.txt", "*.py"])
+    assert not should_exclude_file("test.md", ["*.txt", "*.py"])
 
     # Test Windows paths
-    assert should_exclude_file("tests\\test.py", ["tests/*"]) == True
-    assert should_exclude_file("src\\test.py", ["tests/*"]) == False
+    assert should_exclude_file("tests\\test.py", ["tests/*"])
+    assert not should_exclude_file("src\\test.py", ["tests/*"])
 
     # Test with default patterns
-    assert should_exclude_file("test.pyc", ["*.pyc"]) is True
-    assert should_exclude_file("test.py", ["*.pyc"]) is False
+    assert should_exclude_file("test.pyc", ["*.pyc"])
+    assert not should_exclude_file("test.py", ["*.pyc"])
 
     # Test with directory patterns
-    assert should_exclude_file("venv/lib/test.py", ["venv/"]) is True
-    assert should_exclude_file("other/lib/test.py", ["venv/"]) is False
+    assert should_exclude_file("venv/lib/test.py", ["venv/"])
+    assert not should_exclude_file("other/lib/test.py", ["venv/"])
 
     # Test with multiple patterns including negation
     patterns = ["*.pyc", "venv/", "!test.py"]
-    assert should_exclude_file("test.pyc", patterns) is True  # Matches *.pyc
-    assert should_exclude_file("venv/lib/test.py", patterns) is True  # Matches venv/
-    assert should_exclude_file("test.py", patterns) is False  # Matches !test.py
-    assert (
-        should_exclude_file("other.py", patterns) is True
-    )  # No match, but has negation
+    assert should_exclude_file("test.pyc", patterns)  # Matches *.pyc
+    assert should_exclude_file("venv/lib/test.py", patterns)  # Matches venv/
+    assert not should_exclude_file("test.py", patterns)  # Matches !test.py
+    assert not should_exclude_file("other.py", patterns)
 
 
 def test_get_python_files():

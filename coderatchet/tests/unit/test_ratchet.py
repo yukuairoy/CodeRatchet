@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from coderatchet.core.comparison import compare_ratchet_sets
-from coderatchet.core.config import RatchetConfig
 from coderatchet.core.ratchet import (
     FullFileRatchetTest,
     PatternManager,

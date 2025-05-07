@@ -190,7 +190,17 @@ def should_exclude_file(filepath: str, exclusion_patterns: List[str]) -> bool:
     filepath = str(Path(filepath)).replace("\\", "/")
     filename = Path(filepath).name
 
-    # First check if the file matches any negation pattern
+    # First check directory patterns (they take precedence)
+    for pattern in exclusion_patterns:
+        if not pattern.startswith("!") and pattern.endswith("/"):
+            dir_pattern = pattern.rstrip("/")
+            # Check if any part of the path matches the directory pattern
+            path_parts = filepath.split("/")
+            for part in path_parts:
+                if fnmatch(part, dir_pattern):
+                    return True
+
+    # Then check if the file matches any negation pattern
     for pattern in exclusion_patterns:
         if pattern.startswith("!"):
             pattern_without_negation = pattern[1:]
@@ -199,38 +209,21 @@ def should_exclude_file(filepath: str, exclusion_patterns: List[str]) -> bool:
             if "/" in pattern_without_negation:
                 if fnmatch(filepath, pattern_without_negation):
                     return False
-            else:
-                if fnmatch(filename, pattern_without_negation):
-                    return False
+            elif fnmatch(filename, pattern_without_negation):
+                return False
 
-    # Then check if the file matches any exclusion pattern
+    # Finally check other exclusion patterns
     for pattern in exclusion_patterns:
-        if not pattern.startswith("!"):
-            # Special handling for directory patterns (ending with /)
-            if pattern.endswith("/"):
-                pattern = pattern.rstrip("/")
-                # Check if any part of the path matches the directory pattern
-                path_parts = filepath.split("/")
-                for i in range(len(path_parts)):
-                    if fnmatch(path_parts[i], pattern):
-                        return True
-            # Handle patterns with wildcards in directory paths
-            elif "*" in pattern and "/" in pattern:
+        if not pattern.startswith("!") and not pattern.endswith(
+            "/"
+        ):  # Skip negation and directory patterns
+            # Match against full path if pattern contains a path separator
+            if "/" in pattern:
                 if fnmatch(filepath, pattern):
                     return True
-            # Regular pattern matching
+            # Match against filename only if pattern doesn't contain a path separator
             elif fnmatch(filename, pattern):
                 return True
-
-    # If we have any negation patterns and the file doesn't match any of them,
-    # it should be excluded by default
-    has_negation = any(p.startswith("!") for p in exclusion_patterns)
-    if has_negation:
-        # Only exclude if there's also a non-negation pattern that would match all files
-        has_wildcard_pattern = any(
-            not p.startswith("!") and p == "*.py" for p in exclusion_patterns
-        )
-        return has_wildcard_pattern
 
     return False
 

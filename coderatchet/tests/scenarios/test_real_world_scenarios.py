@@ -8,7 +8,6 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from coderatchet.core.config import get_ratchet_tests
 from coderatchet.core.ratchet import (
     FullFileRatchetTest,
     RegexBasedRatchetTest,

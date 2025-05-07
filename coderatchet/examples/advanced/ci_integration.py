@@ -1,6 +1,5 @@
 """Examples of CI/CD integration with CodeRatchet."""
 
-import os
 import sys
 from typing import List
 
