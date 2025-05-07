@@ -13,17 +13,27 @@ from coderatchet.core.utils import get_ratchet_test_files, write_ratchet_counts
 
 def test_end_to_end_ratchet_workflow(tmp_path):
     """Test the complete ratchet workflow from test creation to failure detection."""
-    # Create test files
+    # Create test file with violations
     test_file = tmp_path / "test.py"
     test_file.write_text(
         """
 print('Hello')
 print('World')
-print('!')
+print('Test')
 import os
-from os import path
 """
     )
+
+    # Initialize git repository and commit the file
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"], cwd=tmp_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=tmp_path, check=True
+    )
+    subprocess.run(["git", "add", "test.py"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-m", "Initial commit"], cwd=tmp_path, check=True)
 
     # Create ratchet tests
     print_test = RegexBasedRatchetTest(
@@ -33,9 +43,10 @@ from os import path
         match_examples=("print('Hello')",),
         non_match_examples=("logging.info('Hello')",),
     )
+
     import_test = RegexBasedRatchetTest(
         name="no_import",
-        pattern="^import\\s+\\w+$",
+        pattern="^import\\s+",
         description="No direct imports allowed",
         match_examples=("import os",),
         non_match_examples=("from os import path",),
@@ -44,6 +55,9 @@ from os import path
     # Test recent failures detection
     with patch(
         "coderatchet.core.config.get_ratchet_tests",
+        return_value={print_test, import_test},
+    ), patch(
+        "coderatchet.core.recent_failures.get_ratchet_tests",
         return_value={print_test, import_test},
     ), patch(
         "coderatchet.core.recent_failures.get_ratchet_test_files",
