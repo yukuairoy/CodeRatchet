@@ -182,16 +182,19 @@ class GitIntegration:
         if self.has_merge_conflicts():
             raise GitError("Repository has merge conflicts")
 
+        # Get tracked changes
         cmd = ["diff", "--name-only"]
         if base_branch:
-            merge_base = self._run_git_command(
-                ["merge-base", base_branch, "HEAD"]
-            ).stdout.strip()
-            cmd.append(merge_base)
+            cmd.extend([base_branch + "...HEAD"])
         else:
             cmd.append("HEAD")
 
-        return self._get_git_paths(cmd)
+        tracked_changes = self._get_git_paths(cmd, check=False)
+
+        # Get untracked files
+        untracked = self._get_git_paths(["ls-files", "--others", "--exclude-standard"])
+
+        return list(set(tracked_changes + untracked))
 
     def get_file_history(
         self, filepath: Union[str, Path]
@@ -400,14 +403,31 @@ class GitIntegration:
             )
             if not output:
                 raise GitError(f"Submodule not found: {path}")
-            status = output[0]
+            # The first character is the status indicator
+            status_char = output[0]
+            # The commit hash is the next 40 characters
             commit_hash = output[1:41]
-            return commit_hash, {
+            # Remove any trailing whitespace from the commit hash
+            commit_hash = commit_hash.strip()
+            # Map the status character to a status string
+            status_map = {
                 " ": "up to date",
                 "+": "needs update",
                 "-": "not initialized",
                 "U": "merge conflicts",
-            }.get(status, "unknown")
+            }
+            # If the status character is a space, it means "up to date"
+            status = status_map.get(status_char)
+            if status is None:
+                # Check if the status character is a space
+                if status_char == " ":
+                    status = "up to date"
+                else:
+                    status = "unknown"
+            # Print debug information
+            print(f"Status char: '{status_char}' (ord={ord(status_char)})")
+            print(f"Raw output: '{output}'")
+            return commit_hash, status
         except subprocess.CalledProcessError as e:
             raise GitError(f"Failed to get submodule status: {e.output.decode()}")
 
@@ -945,9 +965,7 @@ class GitIntegration:
         Returns:
             List of changed file paths
         """
-        return self._get_git_paths(
-            ["diff-tree", "--no-commit-id", "--name-only", "-r", commit_hash]
-        )
+        return self._get_git_paths(["show", "--pretty=", "--name-only", commit_hash])
 
     def get_file_blame(
         self, filepath: Union[str, Path]

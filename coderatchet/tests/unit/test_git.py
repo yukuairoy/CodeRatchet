@@ -106,16 +106,22 @@ def test_get_changed_files(mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="file1.py\nfile2.py\n")
         files = git.get_changed_files()
         assert len(files) == 2
-        assert files[0] == Path("/test/repo/file1.py")
-        assert files[1] == Path("/test/repo/file2.py")
+        expected_files = {Path("/test/repo/file1.py"), Path("/test/repo/file2.py")}
+        assert set(files) == expected_files
 
         # Test with base branch
-        mock_run.side_effect = [
-            MagicMock(returncode=0, stdout="abc123\n"),  # merge-base
-            MagicMock(returncode=0, stdout="file1.py\nfile2.py\n"),  # diff
-        ]
+        def mock_run_side_effect(cmd, *args, **kwargs):
+            if cmd[0] == "git" and cmd[1] == "merge-base":
+                return MagicMock(returncode=0, stdout="abc123\n")
+            elif cmd[0] == "git" and cmd[1] == "diff":
+                return MagicMock(returncode=0, stdout="file1.py\nfile2.py\n")
+            return MagicMock(returncode=0, stdout="")
+
+        mock_run.side_effect = mock_run_side_effect
         files = git.get_changed_files("main")
         assert len(files) == 2
+        expected_files = {Path("/test/repo/file1.py"), Path("/test/repo/file2.py")}
+        assert set(files) == expected_files
 
         # Test with detached HEAD
         git.is_detached_head.return_value = True

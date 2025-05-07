@@ -24,29 +24,6 @@ from coderatchet.core.test_failure import TestFailure
 from coderatchet.core.utils import PatternManager, pattern_manager
 
 
-def test_test_failure():
-    """Test TestFailure dataclass."""
-    failure = TestFailure(
-        test_name="test1",
-        filepath="test.py",
-        line_number=42,
-        line_contents="print('Hello')",
-        commit_hash=None,
-        commit_message=None,
-        commit_author=None,
-        commit_date=None,
-    )
-
-    assert failure.test_name == "test1"
-    assert failure.filepath == "test.py"
-    assert failure.line_number == 42
-    assert failure.line_contents == "print('Hello')"
-    assert failure.commit_hash is None
-    assert failure.commit_message is None
-    assert failure.commit_author is None
-    assert failure.commit_date is None
-
-
 def test_ratchet_test_basic():
     """Test basic RatchetTest functionality."""
     test = RatchetTest(

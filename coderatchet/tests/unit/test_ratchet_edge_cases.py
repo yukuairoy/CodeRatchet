@@ -8,11 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from coderatchet.core.ratchet import (
-    RegexBasedRatchetTest,
-    TestFailure,
-    TwoPassRatchetTest,
-)
+from coderatchet.core.ratchet import RegexBasedRatchetTest, TwoPassRatchetTest
 from coderatchet.core.utils import RatchetError, pattern_manager
 
 
