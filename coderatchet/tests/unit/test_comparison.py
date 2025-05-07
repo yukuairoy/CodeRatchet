@@ -2,6 +2,7 @@
 Tests for ratchet comparison functionality.
 """
 
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -297,71 +298,81 @@ def test_compare_ratchets_percentage_changes():
 
 def test_compare_ratchets(tmp_path):
     """Test comparing ratchet values between states."""
-    # Create test files
-    file1 = tmp_path / "test1.py"
-    file2 = tmp_path / "test2.py"
+    # Save current directory
+    original_dir = Path.cwd()
+    try:
+        # Change to temp directory
+        os.chdir(tmp_path)
 
-    # Create initial state
-    file1.write_text("print('Hello')")
-    file2.write_text("print('World')")
+        # Initialize git repository
+        subprocess.run(["git", "init"], check=True)
+        subprocess.run(["git", "config", "user.name", "Test User"], check=True)
+        subprocess.run(["git", "config", "user.email", "test@example.com"], check=True)
 
-    # Create ratchet tests
-    test1 = RegexBasedRatchetTest(
-        name="test1",
-        pattern="print",
-        description="Test print statements",
-    )
-    test2 = RegexBasedRatchetTest(
-        name="test2",
-        pattern="import",
-        description="Test imports",
-    )
+        # Create test files
+        file1 = tmp_path / "test1.py"
+        file2 = tmp_path / "test2.py"
 
-    # Mock the ratchet tests function
-    with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
-        with patch(
-            "coderatchet.core.comparison._get_ratchet_counts"
-        ) as mock_get_counts:
-            mock_get_tests.return_value = [test1, test2]
-            mock_get_counts.side_effect = [
-                {"test1": 0, "test2": 0},  # Previous state
-                {"test1": 1, "test2": 0},  # Current state
-            ]
+        # Create initial state
+        file1.write_text("print('Hello')")
+        file2.write_text("print('World')")
 
-            # Test comparison
-            try:
-                comparisons = compare_ratchets("HEAD~1", "HEAD")
-            except subprocess.CalledProcessError:
-                # If git checkout fails, create a mock comparison
-                comparisons = [
-                    RatchetComparison(
-                        test_name="test1",
-                        current_count=1,
-                        previous_count=0,
-                        difference=1,
-                        percentage_change=float("inf"),
-                        is_worse=True,
-                    ),
-                    RatchetComparison(
-                        test_name="test2",
-                        current_count=0,
-                        previous_count=0,
-                        difference=0,
-                        percentage_change=0.0,
-                        is_worse=False,
-                    ),
+        # Add and commit initial state
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "Initial state"], check=True)
+
+        # Create current state
+        file1.write_text("print('Hello')\nprint('Modified')")
+        file2.write_text("print('World')\nprint('New')")
+
+        # Add and commit current state
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "Current state"], check=True)
+
+        # Create ratchet tests
+        test1 = RegexBasedRatchetTest(
+            name="test1",
+            pattern="print",
+            description="Test print statements",
+        )
+        test2 = RegexBasedRatchetTest(
+            name="test2",
+            pattern="import",
+            description="Test imports",
+        )
+
+        # Mock the ratchet tests function
+        with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
+            with patch(
+                "coderatchet.core.comparison._get_ratchet_counts"
+            ) as mock_get_counts:
+                mock_get_tests.return_value = [test1, test2]
+                mock_get_counts.side_effect = [
+                    {"test1": 2, "test2": 0},  # Previous state
+                    {"test1": 4, "test2": 0},  # Current state
                 ]
 
-            # Verify comparisons
-            assert len(comparisons) == 2
-            assert comparisons[0].test_name == "test1"
-            assert comparisons[0].current_count == 1
-            assert comparisons[0].previous_count == 0
-            assert comparisons[0].difference == 1
-            assert comparisons[0].is_worse is True
+                # Test comparison
+                comparisons = compare_ratchets("HEAD~1", "HEAD")
 
-            assert comparisons[1].test_name == "test2"
-            assert comparisons[1].current_count == 0
-            assert comparisons[1].previous_count == 0
-            assert comparisons[1].difference == 0
-            assert comparisons[1].is_worse is False
+                # Verify comparisons
+                assert len(comparisons) == 2
+                assert comparisons[0].test_name == "test1"
+                assert comparisons[0].current_count == 4
+                assert comparisons[0].previous_count == 2
+                assert comparisons[0].difference == 2
+                assert comparisons[0].percentage_change == pytest.approx(
+                    100.0, rel=1e-2
+                )
+                assert comparisons[0].is_worse is True
+
+                assert comparisons[1].test_name == "test2"
+                assert comparisons[1].current_count == 0
+                assert comparisons[1].previous_count == 0
+                assert comparisons[1].difference == 0
+                assert comparisons[1].percentage_change == 0.0
+                assert comparisons[1].is_worse is False
+
+    finally:
+        # Restore original directory
+        os.chdir(original_dir)

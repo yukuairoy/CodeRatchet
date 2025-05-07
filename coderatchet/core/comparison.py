@@ -59,7 +59,11 @@ def compare_ratchets(
         current = current_counts.get(test.name, 0)
         previous = previous_counts.get(test.name, 0)
         diff = current - previous
-        percent = (diff / previous * 100) if previous > 0 else float("inf")
+        # Handle special case where both counts are 0
+        if current == 0 and previous == 0:
+            percent = 0.0
+        else:
+            percent = (diff / previous * 100) if previous > 0 else float("inf")
 
         comparisons.append(
             RatchetComparison(
@@ -130,7 +134,12 @@ class _checkout_state:
 
         if self.stashed:
             try:
-                subprocess.check_call(["git", "stash", "pop"])
+                # Check if there are any stashed changes before trying to pop
+                result = subprocess.run(
+                    ["git", "stash", "list"], capture_output=True, text=True
+                )
+                if result.stdout.strip():  # Only pop if there are stashed changes
+                    subprocess.check_call(["git", "stash", "pop"])
             except subprocess.CalledProcessError as e:
                 logger.error(f"Failed to restore stashed changes: {e}")
                 raise
@@ -181,7 +190,8 @@ class _TempComparisonRatchetTest(RatchetTest):
         compare_count = self.compare_with_ratchet.get_total_count_from_files(
             files_to_evaluate
         )
-        return base_count
+        # Return the maximum count to ensure we catch all potential violations
+        return max(base_count, compare_count)
 
 
 def compare_ratchet_sets(

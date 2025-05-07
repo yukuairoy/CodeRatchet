@@ -3,7 +3,10 @@
 from pathlib import Path
 from typing import Any, Dict, List
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    from ruamel import yaml
 
 from coderatchet.core.ratchet import RatchetTest
 from coderatchet.core.ratchets import FunctionLengthRatchet
@@ -61,67 +64,32 @@ class RatchetConfigManager:
 
         # Add basic ratchets if enabled
         if self.config["ratchets"]["basic"]["enabled"]:
-            # Get basic ratchets and create new instances to avoid modifying frozen ones
-            for ratchet in get_basic_ratchets():
-                ratchets.append(
-                    RegexBasedRatchetTest(
-                        name=ratchet.name,
-                        pattern=ratchet.pattern,
-                        description=ratchet.description,
-                        match_examples=ratchet.match_examples,
-                        non_match_examples=ratchet.non_match_examples,
-                        allowed_count=ratchet.allowed_count,
-                        exclude_test_files=ratchet.exclude_test_files,
-                    )
-                )
+            ratchets.extend(get_basic_ratchets())
 
         # Add custom ratchets if enabled
         if self.config["ratchets"]["custom"]["enabled"]:
             custom_config = self.config["ratchets"]["custom"]["config"]
 
-            # Get custom ratchets and create new instances with custom configuration
-            for ratchet in get_custom_ratchets():
-                if ratchet.name in custom_config:
-                    config = custom_config[ratchet.name]
-                    if isinstance(ratchet, FunctionLengthRatchet):
-                        # Create a new FunctionLengthRatchet with custom configuration
-                        ratchets.append(
-                            FunctionLengthRatchet(
-                                max_lines=config.get("max_lines", 50),
-                                name=ratchet.name,
-                                description=ratchet.description,
-                                allowed_count=ratchet.allowed_count,
-                                exclude_test_files=ratchet.exclude_test_files,
-                                match_examples=ratchet.match_examples,
-                                non_match_examples=ratchet.non_match_examples,
-                            )
-                        )
+            # Create new instances of custom ratchets with configured values
+            for ratchet_template in get_custom_ratchets():
+                if isinstance(ratchet_template, FunctionLengthRatchet):
+                    # Get configured max_lines or use default
+                    max_lines = custom_config.get("function_length", {}).get(
+                        "max_lines", 50
+                    )
+                    # Create new instance with configured value
+                    ratchet = FunctionLengthRatchet(
+                        max_lines=max_lines,
+                        name=ratchet_template.name,
+                        description=ratchet_template.description,
+                        allowed_count=ratchet_template.allowed_count,
+                        exclude_test_files=ratchet_template.exclude_test_files,
+                        match_examples=ratchet_template.match_examples,
+                        non_match_examples=ratchet_template.non_match_examples,
+                    )
+                    ratchets.append(ratchet)
                 else:
-                    # Create a new instance of the ratchet without modification
-                    if isinstance(ratchet, FunctionLengthRatchet):
-                        ratchets.append(
-                            FunctionLengthRatchet(
-                                max_lines=ratchet.max_lines,
-                                name=ratchet.name,
-                                description=ratchet.description,
-                                allowed_count=ratchet.allowed_count,
-                                exclude_test_files=ratchet.exclude_test_files,
-                                match_examples=ratchet.match_examples,
-                                non_match_examples=ratchet.non_match_examples,
-                            )
-                        )
-                    else:
-                        ratchets.append(
-                            RegexBasedRatchetTest(
-                                name=ratchet.name,
-                                pattern=ratchet.pattern,
-                                description=ratchet.description,
-                                match_examples=ratchet.match_examples,
-                                non_match_examples=ratchet.non_match_examples,
-                                allowed_count=ratchet.allowed_count,
-                                exclude_test_files=ratchet.exclude_test_files,
-                            )
-                        )
+                    ratchets.append(ratchet_template)
 
         return ratchets
 

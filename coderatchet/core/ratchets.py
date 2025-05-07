@@ -3,11 +3,16 @@
 import ast
 from typing import List, Optional
 
+import attr
+
 from .ratchet import RatchetTest, TestFailure
 
 
+@attr.s(frozen=True, auto_attribs=True)
 class FunctionLengthRatchet(RatchetTest):
     """Ratchet that enforces a maximum function length."""
+
+    max_lines: int = attr.ib(default=50)
 
     def __init__(
         self,
@@ -45,7 +50,7 @@ class FunctionLengthRatchet(RatchetTest):
                 "def long_function():\n    x = 1\n    y = 2\n    z = 3\n    a = 4\n    b = 5\n    c = 6\n    d = 7\n    e = 8\n    f = 9\n    g = 10\n    return x + y + z + a + b + c + d + e + f + g",
             ],
         )
-        self.max_lines = max_lines
+        object.__setattr__(self, "max_lines", max_lines)
 
     def collect_failures_from_lines(
         self, lines: List[str], filepath: str = ""

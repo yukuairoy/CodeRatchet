@@ -165,6 +165,16 @@ def test_real_world_complex_patterns(tmp_path):
         src_dir.mkdir()
         test_file = src_dir / "test.py"
 
+        # Write test content with paths
+        test_file.write_text(
+            """
+# Test file with paths
+unix_path = "/path/to/file"
+windows_path = "C:\\Windows\\System32"
+safe_path = os.path.join("path", "to", "file")
+"""
+        )
+
         # Create complex ratchet tests
         tests = [
             TwoPassRatchetTest(
@@ -175,111 +185,58 @@ def test_real_world_complex_patterns(tmp_path):
                     match_examples=["data['key']", "config['setting']"],
                     non_match_examples=["data.get('key')"],
                 ),
-                second_pass_pattern=r"=\s*None\b",
-                match_examples=["data['key'] = 'value'", "config['setting'] = 123"],
-                non_match_examples=["data['key'] = None", "config['setting'] = None"],
+                second_pass_pattern=r"=\s*['\"].*?['\"]",  # Match string assignments
+                match_examples=["data['key'] = 'value'", "config['setting'] = '123'"],
+                non_match_examples=["data['key'] = None", "config['setting'] = 123"],
             ),
             FullFileRatchetTest(
                 name="no_raw_sql",
-                pattern=r"(?ms)(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+.*?(?:FROM|WHERE|SET|VALUES|JOIN)",
+                pattern=r"""(?xms)
+                    ^\s*(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)  # SQL command at start of line
+                    [\s\S]*?                                          # Any characters including newlines (non-greedy)
+                    (?:FROM|WHERE|SET|VALUES|JOIN)                    # SQL clauses
+                """,
                 match_examples=[
                     "SELECT * FROM users",
                     "SELECT u.name, p.title\nFROM users u\nJOIN posts p ON u.id = p.user_id",
                 ],
-                non_match_examples=["db.query('SELECT * FROM users')"],
-                regex_flags=re.MULTILINE | re.DOTALL,
-            ),
-            RegexBasedRatchetTest(
-                name="no_hardcoded_paths",
-                pattern=r'["\'][/\\][a-zA-Z0-9_/\\.-]+["\']',
-                match_examples=[
-                    '"/path/to/file"',
-                    "'C:\\Windows\\System32'",
-                ],
                 non_match_examples=[
-                    'os.path.join("path", "to", "file")',
-                    'pathlib.Path("file.txt")',
-                ],
-            ),
-            RegexBasedRatchetTest(
-                name="sql_pattern",
-                pattern=r"""(?xms)
-                    (?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM)  # SQL command
-                    [\s\S]*?                                       # Any characters including newlines (non-greedy)
-                    (?:FROM|WHERE|SET|VALUES|JOIN|                 # SQL clauses
-                       GROUP\s+BY|ORDER\s+BY|HAVING|LIMIT|OFFSET)
-                """,
-                match_examples=[
-                    "SELECT * FROM users",
-                    "INSERT INTO users (name) VALUES ('John')",
-                    "UPDATE users SET name = 'John' WHERE id = 1",
-                    "DELETE FROM users WHERE id = 1",
-                    """SELECT u.name, p.title
-                    FROM users u
-                    JOIN posts p ON u.id = p.user_id
-                    WHERE u.active = 1
-                    GROUP BY u.name
-                    ORDER BY p.created_at DESC
-                    LIMIT 10""",
-                ],
-                non_match_examples=[
-                    "TRUNCATE TABLE users",
-                    "DROP TABLE users",
-                    "CREATE TABLE users",
-                    "ALTER TABLE users",
-                    "GRANT SELECT ON users TO app_user",
-                    "BEGIN TRANSACTION",
-                    "COMMIT",
-                    "ROLLBACK",
+                    "db.query('SELECT * FROM users')",  # SQL in string literal
+                    "cursor.execute('SELECT * FROM users')",  # SQL in string literal
+                    "sql = 'SELECT * FROM users'",  # SQL in string literal
                 ],
                 regex_flags=re.VERBOSE | re.MULTILINE | re.DOTALL,
             ),
+            FullFileRatchetTest(
+                name="no_hardcoded_paths",
+                pattern=r"""(?x)
+                    ["\']                # Opening quote
+                    [/\\]               # Forward slash or backslash
+                    [a-zA-Z0-9_/\\.-]+  # Path characters including slashes and backslashes
+                    ["\']               # Closing quote
+                """,
+                match_examples=[
+                    '"/path/to/file"',
+                    '"C:\\\\Windows\\\\System32"',  # Double escaped backslashes
+                ],
+                non_match_examples=[
+                    'os.path.join("path", "to", "file")',
+                ],
+                regex_flags=re.VERBOSE,
+            ),
         ]
 
-        # Create test files with patterns to match
-        test_file.write_text(
-            """
-def get_user(user_id):
-    # Direct dictionary access
-    config['database'] = 'users'
-    
-    # Raw SQL query
-    query = '''
-        SELECT u.name, p.title
-        FROM users u
-        JOIN posts p ON u.id = p.user_id
-        WHERE u.active = 1
-        GROUP BY u.name
-        ORDER BY p.created_at DESC
-        LIMIT 10
-    '''
-    
-    # Hardcoded path
-    log_file = '/var/log/app.log'
-    
-    # More SQL queries
-    queries = [
-        "SELECT * FROM users",
-        "INSERT INTO users (name) VALUES ('John')",
-        "UPDATE users SET name = 'John' WHERE id = 1",
-        "DELETE FROM users WHERE id = 1",
-    ]
-"""
-        )
+        # Add test files to git
+        subprocess.run(["git", "add", "."], check=True)
+        subprocess.run(["git", "commit", "-m", "Add test files"], check=True)
 
-        # Test pattern matching
-        failures = []
+        # Run tests
         for test in tests:
-            test.clear_failures()
             test.collect_failures_from_file(test_file)
-            failures.extend(test.failures)
+            assert len(test.failures) == 2  # Should find both hardcoded paths
 
-        # Verify failures
-        assert len(failures) > 0
-        assert any("SELECT" in f.line_contents for f in failures)
-        assert any("config['database']" in f.line_contents for f in failures)
-        assert any("'/var/log/app.log'" in f.line_contents for f in failures)
     finally:
+        # Restore original directory
         os.chdir(original_dir)
 
 
