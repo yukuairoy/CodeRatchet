@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from coderatchet.core.comparison import compare_ratchet_sets
+from coderatchet.core.config import RatchetConfig
 from coderatchet.core.ratchet import (
     FullFileRatchetTest,
     PatternManager,
@@ -318,16 +319,41 @@ def test_recent_failures(tmp_path):
         description="Test imports",
     )
 
-    # Mock the ratchet tests function and get_ratchet_test_files
-    from unittest.mock import patch
+    # Mock the necessary functions
+    from unittest.mock import MagicMock, patch
 
-    from coderatchet.core.config import get_ratchet_tests
-    from coderatchet.core.utils import get_ratchet_test_files
+    from coderatchet.core.config import RatchetConfig
+
+    test1_config = RatchetConfig(
+        name="test1",
+        pattern="print",
+        match_examples=["print('Hello')"],
+        non_match_examples=["logging.info('Hello')"],
+    )
+    test2_config = RatchetConfig(
+        name="test2",
+        pattern="import",
+        match_examples=["import os"],
+        non_match_examples=["from os import path"],
+    )
+
+    def mock_get_python_files(*args, **kwargs):
+        return {file1, file2}
 
     with patch(
-        "coderatchet.core.config.get_ratchet_tests", return_value=[test1, test2]
+        "coderatchet.core.config.load_ratchet_configs",
+        return_value=[test1_config, test2_config],
     ), patch(
-        "coderatchet.core.utils.get_ratchet_test_files", return_value=[file1, file2]
+        "coderatchet.core.config.create_ratchet_tests",
+        return_value=[test1, test2],
+    ), patch(
+        "coderatchet.core.utils.get_python_files",
+        side_effect=mock_get_python_files,
+    ), patch(
+        "coderatchet.core.utils._get_exclusion_patterns",
+        return_value=[],
+    ), patch(
+        "coderatchet.core.recent_failures.GitIntegration", MagicMock
     ):
         # Test without commit info
         failures = get_recently_broken_ratchets(limit=10, include_commits=False)
@@ -337,6 +363,12 @@ def test_recent_failures(tmp_path):
         assert all(
             "print" in f.line_contents or "import" in f.line_contents for f in failures
         )
+
+        # Verify the specific failures
+        print_failures = [f for f in failures if "print" in f.line_contents]
+        import_failures = [f for f in failures if "import" in f.line_contents]
+        assert len(print_failures) == 2
+        assert len(import_failures) == 1
 
 
 def test_compare_ratchets():

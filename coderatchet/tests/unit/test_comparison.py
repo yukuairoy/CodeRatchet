@@ -319,7 +319,9 @@ def test_compare_ratchets(tmp_path):
 
     # Mock the ratchet tests function
     with patch("coderatchet.core.config.get_ratchet_tests") as mock_get_tests:
-        with patch("coderatchet.core.comparison._get_ratchet_counts") as mock_get_counts:
+        with patch(
+            "coderatchet.core.comparison._get_ratchet_counts"
+        ) as mock_get_counts:
             mock_get_tests.return_value = [test1, test2]
             mock_get_counts.side_effect = [
                 {"test1": 0, "test2": 0},  # Previous state
